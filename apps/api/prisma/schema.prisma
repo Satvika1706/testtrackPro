@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+  // Remove engineType = "binary" or change it to "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TESTER
+  DEVELOPER
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  password  String
+  role      Role
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  testCases TestCase[]
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum Severity {
+  BLOCKER
+  CRITICAL
+  MAJOR
+  MINOR
+  TRIVIAL
+}
+
+enum TestType {
+  FUNCTIONAL
+  REGRESSION
+  SMOKE
+  INTEGRATION
+  UAT
+  PERFORMANCE
+  SECURITY
+  USABILITY
+}
+
+enum TestStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  APPROVED
+  DEPRECATED
+  ARCHIVED
+}
+
+enum AutomationStatus {
+  NOT_AUTOMATED
+  IN_PROGRESS
+  AUTOMATED
+  CANNOT_AUTOMATE
+}
+
+model TestCase {
+  id          String @id @default(uuid())
+  testCaseId  String @unique
+  title       String @db.VarChar(200)
+  description String
+
+  module   String
+  priority Priority
+  severity Severity
+  type     TestType
+  status   TestStatus
+
+  preConditions String
+  testData      String
+  environment   String
+
+  estimatedDuration Int? // minutes
+  automationStatus  AutomationStatus
+  automationLink    String?
+
+  version   Int     @default(1)
+  isDeleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  steps TestStep[]
+
+  @@index([status, priority])
+}
+
+model TestStep {
+  id             String  @id @default(uuid())
+  stepNumber     Int
+  action         String
+  testData       String?
+  expectedResult String
+  actualResult   String?
+  status         String?
+
+  testCaseId String
+  testCase   TestCase @relation(fields: [testCaseId], references: [id])
+
+  createdAt DateTime @default(now())
+}
