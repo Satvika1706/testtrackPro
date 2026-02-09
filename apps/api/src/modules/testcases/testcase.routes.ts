@@ -1,70 +1,45 @@
 import { Router } from "express";
-
 import { requireAuth } from "../../middleware/auth.middleware";
-import { requireRole } from "../../middleware/role.middleware";
-
 import {
-  getTestCases,
   createTestCase,
-  updateTestCase,
+  getTestCases,
+  getTestCaseById,
+  updateTestCaseController,
   cloneTestCase,
   deleteTestCase,
+  getTestCaseTemplates
 } from "./testcase.controller";
+import { getTestCaseHistory } from "./testcase.controller";
+
 
 const router = Router();
 
-/**
- * GET ALL TEST CASES
- * GET /api/test-cases
- */
+router.get("/test-cases", requireAuth, getTestCases);
+router.post("/test-cases", requireAuth, createTestCase);
+router.get("/test-cases/:id", requireAuth, getTestCaseById);
+router.put("/test-cases/:id", requireAuth, updateTestCaseController);
+router.delete("/test-cases/:id", requireAuth, deleteTestCase);
+router.post("/test-cases/:id/clone", requireAuth, cloneTestCase);
 router.get(
-  "/test-cases",
+  "/test-cases/:id/history",
   requireAuth,
-  getTestCases
+  getTestCaseHistory
 );
+import { createTemplateFromTestCase } from "./testcase.controller";
 
-/**
- * CREATE TEST CASE
- * POST /api/
- */
 router.post(
-  "/",
+  "/test-cases/:id/template",
   requireAuth,
-  requireRole(["TESTER"]),
-  createTestCase
+  createTemplateFromTestCase
+);
+router.post("/test", (req, res) => {
+  res.send("OK");
+});
+router.get(
+  "/test-case-templates",
+  requireAuth,
+  getTestCaseTemplates
 );
 
-/**
- * UPDATE TEST CASE
- * PUT /api/:id
- */
-router.put(
-  "/:id",
-  requireAuth,
-  requireRole(["TESTER"]),
-  updateTestCase
-);
-
-/**
- * CLONE TEST CASE
- * POST /api/:id/clone
- */
-router.post(
-  "/:id/clone",
-  requireAuth,
-  requireRole(["TESTER"]),
-  cloneTestCase
-);
-
-/**
- * SOFT DELETE TEST CASE
- * DELETE /api/:id
- */
-router.delete(
-  "/:id",
-  requireAuth,
-  requireRole(["TESTER"]),
-  deleteTestCase
-);
 
 export default router;

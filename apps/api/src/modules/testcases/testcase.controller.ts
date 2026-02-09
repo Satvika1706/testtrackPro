@@ -1,129 +1,130 @@
-import { Response } from "express";
-import { AuthRequest } from "../../middleware/auth.middleware";
-import { createTestCaseService } from "./testcase.service";
+import { Request, Response } from 'express';
+import { 
+  createTestCaseService, 
+  getTestCasesService, 
+  getTestCaseByIdService, 
+  updateTestCaseService, 
+  deleteTestCaseService,
+  cloneTestCaseService,
+  getTestCaseTemplatesService
+} from './testcase.service';
 
-import { prisma } from "../../prisma";
 
+interface AuthRequest extends Request {
+  user?: {
+    userId: number;
+  };
+}
 
-export const createTestCase = async (
-  req: AuthRequest,
-  res: Response
-) => {
+export const createTestCase = async (req: AuthRequest, res: Response) => {
   try {
-    // ✅ TypeScript now knows userId exists
-    const userId = req.user!.userId;
-
-    const testCase = await createTestCaseService(req.body, userId);
-
-    return res.status(201).json({
-      success: true,
-      message: "Test case created successfully",
-      data: testCase
-    });
-  } catch (error: any) {
-    console.error("Create Test Case Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    const testCase = await createTestCaseService(req.body, req.user!.userId);
+    res.json(testCase);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create test case" });
   }
 };
 
-export const getTestCases = async (req: AuthRequest, res: Response) => {
-  const testCases = await prisma.testCase.findMany({
-    where: { isDeleted: false },
-    include: { steps: true },
-  });
-
-  res.json(testCases);
+export const getTestCases = async (req: Request, res: Response) => {
+  try {
+    const testCases = await getTestCasesService();
+    res.json(testCases);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch test cases" });
+  }
 };
 
+export const getTestCaseById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const testCase = await getTestCaseByIdService(id);
+    if (!testCase) return res.status(404).json({ error: "Test case not found" });
+    res.json(testCase);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch test case" });
+  }
+};
 
-import { updateTestCaseService } from "./testcase.service";
+export const updateTestCaseController = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const updated = await updateTestCaseService(id, req.body, req.user!.userId);
+    res.json(updated);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to update test case" });
+  }
+};
 
-export const updateTestCase = async (
+export const deleteTestCase = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await deleteTestCaseService(id);
+    res.json({ message: "Test case deleted" });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete test case" });
+  }
+};
+
+export const cloneTestCase = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const cloned = await cloneTestCaseService(id, req.user!.userId);
+    res.json(cloned);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to clone test case" });
+  }
+};
+import { prisma } from "../../prisma"; 
+
+export const getTestCaseHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const history = await prisma.testCaseHistory.findMany({
+      where: { testCaseId: id },
+      orderBy: { version: "desc" },
+    });
+
+    res.json(history);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch history" });
+  }
+};
+import {
+  createTestCaseTemplateService
+} from "./testcase.service";
+
+export const createTemplateFromTestCase = async (
   req: AuthRequest,
   res: Response
 ) => {
   try {
     const { id } = req.params;
-    const { changeSummary } = req.body;
+    const { name, category, description } = req.body;
 
-    if (!changeSummary) {
-      return res.status(400).json({
-        success: false,
-        message: "Change summary is required"
-      });
-    }
-
-    const userId = req.user!.userId;
-
-    const updated = await updateTestCaseService(
+    const template = await createTestCaseTemplateService(
       id,
-      req.body,
-      userId
+      { name, category, description },
+      req.user!.userId
     );
 
-    return res.status(200).json({
-      success: true,
-      message: "Test case updated successfully",
-      data: updated
-    });
+    res.status(201).json(template);
   } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    console.error(error);
+    res.status(500).json({ error: error.message });
   }
 };
-
-import { cloneTestCaseService } from "./testcase.service";
-
-export const cloneTestCase = async (
-  req: AuthRequest,
+export const getTestCaseTemplates = async (
+  _req: Request,
   res: Response
 ) => {
   try {
-    const { id } = req.params;
-    const userId = req.user!.userId;
-
-    const cloned = await cloneTestCaseService(id, userId);
-
-    return res.status(201).json({
-      success: true,
-      message: "Test case cloned successfully",
-      data: cloned
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    const templates = await getTestCaseTemplatesService();
+    res.json(templates);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch templates" });
   }
 };
-
-import { deleteTestCaseService } from "./testcase.service";
-
-export const deleteTestCase = async (
-  req: AuthRequest,
-  res: Response
-) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user!.userId;
-
-    await deleteTestCaseService(id, userId);
-
-    return res.status(200).json({
-      success: true,
-      message: "Test case deleted successfully"
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-
+  

@@ -1,85 +1,70 @@
-import { prisma } from "../../prisma";
-import { CreateTestCaseDTO } from "./testcase.types";
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
 
-export const createTestCaseService = async (
-  data: CreateTestCaseDTO,
-  userId: number
-) => {
-  // Generate readable Test Case ID
-  const testCaseId = `TC-${new Date().getFullYear()}-${Math.floor(
-    10000 + Math.random() * 90000
-  )}`;
+// 1. CREATE
+export const createTestCaseService = async (data: any, userId: number) => {
+  const { steps, ...testCaseData } = data;
 
-  const testCase = await prisma.testCase.create({
+  return await prisma.testCase.create({
     data: {
-      testCaseId,
-      title: data.title,
-      description: data.description,
-      module: data.module,
-
-      // Enums (must match Prisma)
-      priority: data.priority,
-      severity: data.severity,
-      type: data.type,
-      status: data.status,
-
-      // Strings (as per schema)
-      preConditions: data.preConditions,
-      testData: data.testData,
-      environment: data.environment,
-
-      estimatedDuration: data.estimatedDuration,
-      automationStatus: data.automationStatus,
-      automationLink: data.automationLink,
-
-      version: 1,
-      createdById: userId,
-
-    
-      steps: {
-        create:
-          Array.isArray(data.steps) && data.steps.length > 0
-            ? data.steps.map((step) => ({
-                stepNumber: step.stepNumber,
-                action: step.action,
-                testData: step.testData,
-                expectedResult: step.expectedResult
-              }))
-            : []
-      }
-    },
-    include: {
-      steps: true
+      ...testCaseData,
+      
+      createdById: userId, 
+      
+      steps: steps ? {
+        create: steps.map((step: any, index: number) => ({
+          stepNumber: index + 1,
+          action: step.action,
+          expectedResult: step.expectedResult
+        }))
+      } : undefined
     }
   });
-
-  return testCase;
 };
 
+// 2. GET ALL 
+export const getTestCasesService = async () => {
+  return await prisma.testCase.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: {
+      steps: true 
+    }
+  });
+};
+
+// 3. GET ONE
+export const getTestCaseByIdService = async (id: string) => {
+  return await prisma.testCase.findUnique({
+    where: { id },
+    include: {
+      steps: {
+        orderBy: { stepNumber: 'asc' }
+      }
+    },
+  });
+};
+// 4. UPDATE 
 
 export const updateTestCaseService = async (
-  testCaseId: string,
-  data: CreateTestCaseDTO,
+  id: string,
+  data: any,
   userId: number
 ) => {
-  // 1. Fetch existing test case
+  // 1 Fetch existing test case WITH steps
   const existing = await prisma.testCase.findUnique({
-    where: { id: testCaseId },
-    include: { steps: true }
+    where: { id },
+    include: { steps: true },
   });
 
-  if (!existing || existing.isDeleted) {
+  if (!existing) {
     throw new Error("Test case not found");
   }
 
-  // 2. Ownership check
-  if (existing.createdById !== userId) {
-    throw new Error("You are not allowed to edit this test case");
-  }
+  const newVersion = existing.version + 1;
 
-  // 3. Update test case + increment version
+  // 2 Update TestCase
   const updated = await prisma.testCase.update({
-    where: { id: testCaseId },
+    where: { id },
     data: {
       title: data.title,
       description: data.description,
@@ -91,118 +76,133 @@ export const updateTestCaseService = async (
       preConditions: data.preConditions,
       testData: data.testData,
       environment: data.environment,
-      automationStatus: data.automationStatus,
-      automationLink: data.automationLink,
-
-      version: existing.version + 1,
-
-     
-      steps: {
-        deleteMany: {},
-        create: data.steps.map((step) => ({
-          stepNumber: step.stepNumber,
-          action: step.action,
-          testData: step.testData,
-          expectedResult: step.expectedResult
-        }))
-      }
+      version: newVersion,
+      updatedAt: new Date(),
     },
-    include: {
-      steps: true
-    }
+    include: { steps: true }, 
+  });
+
+  // 3 Convert steps → JSON-safe snapshot
+  const stepsSnapshot = updated.steps.map(step => ({
+    id: step.id,
+    action: step.action,
+    expectedResult: step.expectedResult,
+    stepNumber: step.stepNumber
+  }));
+
+  // 4 Create History Snapshot 
+  await prisma.testCaseHistory.create({
+    data: {
+      testCaseId: id,
+      version: newVersion,
+
+      // Snapshot fields 
+      title: updated.title,
+      description: updated.description,
+      module: updated.module,
+      priority: updated.priority,
+      severity: updated.severity,
+      type: updated.type,
+      status: updated.status,
+      preConditions: updated.preConditions,
+      testData: updated.testData,
+      environment: updated.environment,
+
+      stepsSnapshot, 
+      changedBy: userId,
+      changedAt: new Date(),
+    },
   });
 
   return updated;
 };
 
 
-export const cloneTestCaseService = async (
-  testCaseId: string,
-  userId: number
-) => {
-  // 1. Fetch original test case
-  const original = await prisma.testCase.findUnique({
-    where: { id: testCaseId },
-    include: { steps: true }
+export const deleteTestCaseService = async (id: string) => {
+  return await prisma.testCase.update({
+    where: { id },
+    data: { isDeleted: true },
   });
-
-  if (!original || original.isDeleted) {
-    throw new Error("Original test case not found");
-  }
-
-  // 2. Generate new Test Case ID
-  const newTestCaseId = `TC-${new Date().getFullYear()}-${Math.floor(
-    10000 + Math.random() * 90000
-  )}`;
-
-  // 3. Create cloned test case
-  const cloned = await prisma.testCase.create({
-    data: {
-      testCaseId: newTestCaseId,
-      title: original.title,
-      description: original.description,
-      module: original.module,
-
-      priority: original.priority,
-      severity: original.severity,
-      type: original.type,
-
-      // 🔑 force DRAFT for clone
-      status: "DRAFT",
-
-      preConditions: original.preConditions,
-      testData: original.testData,
-      environment: original.environment,
-
-      estimatedDuration: original.estimatedDuration,
-      automationStatus: original.automationStatus,
-      automationLink: original.automationLink,
-
-      version: 1,
-      createdById: userId,
-
-      steps: {
-        create: original.steps.map((step) => ({
-          stepNumber: step.stepNumber,
-          action: step.action,
-          testData: step.testData,
-          expectedResult: step.expectedResult
-        }))
-      }
-    },
-    include: {
-      steps: true
-    }
-  });
-
-  return cloned;
 };
 
 
-export const deleteTestCaseService = async (
-  testCaseId: string,
-  userId: number
-) => {
-  const existing = await prisma.testCase.findUnique({
-    where: { id: testCaseId }
+// 6. CLONE
+export const cloneTestCaseService = async (id: string, userId: number) => {
+  const original = await prisma.testCase.findUnique({
+    where: { id },
+    include: { steps: true }
   });
 
-  if (!existing || existing.isDeleted) {
+  if (!original) throw new Error("Not found");
+
+  const { id: _, ...data } = original;
+
+  return await prisma.testCase.create({
+    data: {
+      ...data,
+      title: `${original.title} (Clone)`,
+      createdById: userId, 
+      steps: {
+        create: original.steps.map(s => ({
+          stepNumber: s.stepNumber,
+          action: s.action,
+          expectedResult: s.expectedResult
+        }))
+      }
+    }
+  });
+};
+export const createTestCaseTemplateService = async (
+  testCaseId: string,
+  templateData: {
+    name: string;
+    category: string;
+    description?: string;
+  },
+  userId: number
+) => {
+  
+  const testCase = await prisma.testCase.findUnique({
+    where: { id: testCaseId },
+    include: { steps: true },
+  });
+
+  if (!testCase) {
     throw new Error("Test case not found");
   }
 
-  
-  if (existing.createdById !== userId) {
-    throw new Error("You are not allowed to delete this test case");
-  }
+  const stepsSnapshot = testCase.steps.map(step => ({
+    stepNumber: step.stepNumber,
+    action: step.action,
+    expectedResult: step.expectedResult,
+  }));
 
-  await prisma.testCase.update({
-    where: { id: testCaseId },
+
+  return prisma.testCaseTemplate.create({
     data: {
-      isDeleted: true
-    }
-  });
+      name: templateData.name,
+      category: templateData.category,
+      description: templateData.description,
 
-  return true;
+      title: testCase.title,
+      priority: testCase.priority,
+      severity: testCase.severity,
+      type: testCase.type,
+
+      preConditions: testCase.preConditions,
+      testData: testCase.testData,
+      environment: testCase.environment,
+
+      stepsSnapshot,
+
+      createdById: userId,
+    },
+  });
+};
+export const getTestCaseTemplatesService = async () => {
+  return prisma.testCaseTemplate.findMany({
+    where: { isActive: true },
+    orderBy: { createdAt: "desc" },
+  });
 };
 

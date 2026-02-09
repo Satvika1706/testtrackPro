@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  // Remove engineType = "binary" or change it to "library"
+  
 }
 
 datasource db {
@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   TESTER
   DEVELOPER
+  
 }
 
 model User {
@@ -21,6 +22,8 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   testCases TestCase[]
+  templates TestCaseTemplate[]
+
 }
 
 enum Priority {
@@ -64,38 +67,45 @@ enum AutomationStatus {
   CANNOT_AUTOMATE
 }
 
+
 model TestCase {
-  id          String @id @default(uuid())
-  testCaseId  String @unique
-  title       String @db.VarChar(200)
+  id          String   @id @default(uuid())
+  
+  // 👇 RELAXED: Removed '@unique'. Now it's just an optional string.
+  testCaseId  String?  
+  
+  // 👇 RELAXED: Removed '@db.VarChar(200)'. Now it accepts any length.
+  title       String   
+  
   description String
 
-  module   String
-  priority Priority
-  severity Severity
-  type     TestType
-  status   TestStatus
+  module      String
+  priority    Priority
+  severity    Severity
+  type        TestType
+  status      TestStatus
 
   preConditions String
   testData      String
   environment   String
 
-  estimatedDuration Int? // minutes
-  automationStatus  AutomationStatus
+  estimatedDuration Int? 
+  automationStatus  AutomationStatus?
   automationLink    String?
 
-  version   Int     @default(1)
-  isDeleted Boolean @default(false)
+  version     Int      @default(1)
+  isDeleted   Boolean  @default(false)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   createdById Int
-  createdBy   User @relation(fields: [createdById], references: [id])
+  createdBy   User     @relation(fields: [createdById], references: [id])
 
-  steps TestStep[]
+  steps       TestStep[]
 
   @@index([status, priority])
+  history     TestCaseHistory[]
 }
 
 model TestStep {
@@ -111,4 +121,66 @@ model TestStep {
   testCase   TestCase @relation(fields: [testCaseId], references: [id])
 
   createdAt DateTime @default(now())
+}
+// ADD THIS AT THE BOTTOM OF schema.prisma
+
+model TestCaseHistory {
+  id             String     @id @default(uuid())
+  testCaseId     String
+  version        Int
+  
+  // Basic Info
+  title          String
+  description    String?
+  module         String?
+  
+  // Classification
+  priority       Priority
+  severity       Severity
+  type           TestType
+  status         TestStatus
+  
+  // Execution Details (These were missing!)
+  preConditions  String?
+  testData       String?
+  expectedResult String?
+  postConditions String?    // <--- Added this as requested
+  environment    String?
+  
+  // Metadata
+  changedAt      DateTime   @default(now())
+  changedBy      Int?
+  
+  // JSON Snapshot of steps
+  stepsSnapshot  Json?
+
+  // Relation
+  testCase       TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+}
+model TestCaseTemplate {
+  id          String   @id @default(uuid())
+
+  // Template identity
+  name        String
+  description String?
+  category    String   // Login, CRUD, API, etc.
+
+  // Snapshot fields
+  title       String
+  priority    Priority
+  severity    Severity
+  type        TestType
+
+  preConditions String?
+  testData      String?
+  environment   String?
+
+  // Steps stored as JSON snapshot
+  stepsSnapshot Json
+
+  createdAt   DateTime @default(now())
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  isActive Boolean @default(true)
 }

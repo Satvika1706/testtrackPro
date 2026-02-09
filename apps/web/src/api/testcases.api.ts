@@ -20,13 +20,30 @@ export const updateTestCase = async (id: string, payload: any) => {
 
 // CLONE TEST CASE
 export const cloneTestCase = async (id: string) => {
-  const res = await api.post(`/api/${id}/clone`);
+  const res = await api.post(`/api/test-cases/${id}/clone`);
   return res.data;
 };
 
 // SOFT DELETE TEST CASE
 export const deleteTestCase = async (id: string) => {
-  const res = await api.delete(`/api/${id}`);
+  const res = await api.delete(`/api/test-cases/${id}`);
   return res.data;
+};
+
+export const saveTestCaseAsTemplate = (
+  testCaseId: string,
+  data: {
+    name: string;
+    category: string;
+    description?: string;
+  }
+) => {
+  return api.post(
+    `/api/test-cases/${testCaseId}/template`,
+    data
+  );
+};
+export const getTestCaseTemplates = () => {
+  return api.get("/api/test-case-templates").then(res => res.data);
 };
 
