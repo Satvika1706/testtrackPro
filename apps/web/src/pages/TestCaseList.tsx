@@ -18,10 +18,14 @@ interface TestCase {
 }
 
 const TestCaseList = () => {
- 
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ BULK SELECTION STATE
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState("");
+
+  // TEMPLATE STATES (existing)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState("");
@@ -42,6 +46,8 @@ const TestCaseList = () => {
     fetchTestCases();
   }, []);
 
+  // ---------------- SINGLE ACTIONS ----------------
+
   const handleEdit = (id: string) => {
     window.location.href = `/test-cases/${id}`;
   };
@@ -56,7 +62,7 @@ const TestCaseList = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this test case?")) return;
+    if (!window.confirm("Delete this test case?")) return;
     try {
       await deleteTestCase(id);
       setTestCases((prev) => prev.filter((tc) => tc.id !== id));
@@ -64,6 +70,68 @@ const TestCaseList = () => {
       alert("Delete failed");
     }
   };
+
+  // ---------------- BULK ACTIONS ----------------
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(testCases.map(tc => tc.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id]);
+    } else {
+      setSelectedIds(prev => prev.filter(x => x !== id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+  if (selectedIds.length === 0) return;
+
+  if (!window.confirm("Delete selected test cases?")) return;
+
+  try {
+    // Call delete API for all selected test cases
+    await Promise.all(
+      selectedIds.map(id => deleteTestCase(id))
+    );
+
+    // ✅ Update UI immediately
+    setTestCases(prev =>
+      prev.filter(tc => !selectedIds.includes(tc.id))
+    );
+
+    // Clear selection
+    setSelectedIds([]);
+  } catch (error) {
+    alert("Bulk delete failed");
+  }
+};
+
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedIds.length === 0) return;
+
+    try {
+      // simple local update (API can be added later)
+      setTestCases(prev =>
+        prev.map(tc =>
+          selectedIds.includes(tc.id)
+            ? { ...tc, status: bulkStatus }
+            : tc
+        )
+      );
+      setSelectedIds([]);
+      setBulkStatus("");
+    } catch {
+      alert("Bulk update failed");
+    }
+  };
+
+  // ---------------- TEMPLATE ----------------
 
   const handleSaveTemplate = async () => {
     if (!selectedTestCaseId) return;
@@ -75,7 +143,6 @@ const TestCaseList = () => {
       });
 
       alert("Template created successfully");
-
       setIsTemplateModalOpen(false);
       setTemplateName("");
       setTemplateCategory("");
@@ -90,13 +157,48 @@ const TestCaseList = () => {
   return (
     <div style={{ padding: 20 }}>
       <h2>Test Cases</h2>
-      <div style={{ marginBottom: 20 }}>
-  <Link to="/templates">Go to Templates</Link>
-</div>
 
-      <table border={1} cellPadding={10} style={{ width: "100%", borderCollapse: "collapse" }}>
+      <Link to="/templates">Go to Templates</Link>
+
+      {/* -------- BULK ACTION BAR -------- */}
+      <div style={{ margin: "15px 0" }}>
+        <button
+          disabled={selectedIds.length === 0}
+          onClick={handleBulkDelete}
+          style={{ color: "red", marginRight: 10 }}
+        >
+          Delete Selected
+        </button>
+
+        <select
+          value={bulkStatus}
+          onChange={(e) => setBulkStatus(e.target.value)}
+        >
+          <option value="">Update Status</option>
+          <option value="DRAFT">Draft</option>
+          <option value="READY">Ready</option>
+          <option value="APPROVED">Approved</option>
+        </select>
+
+        <button
+          onClick={handleBulkStatusUpdate}
+          disabled={!bulkStatus || selectedIds.length === 0}
+          style={{ marginLeft: 10 }}
+        >
+          Apply
+        </button>
+      </div>
+
+      <table border={1} cellPadding={10} width="100%">
         <thead>
-          <tr style={{ background: "#f4f4f4" }}>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={selectedIds.length === testCases.length}
+                onChange={(e) => handleSelectAll(e.target.checked)}
+              />
+            </th>
             <th>ID</th>
             <th>Title</th>
             <th>Module</th>
@@ -111,14 +213,20 @@ const TestCaseList = () => {
         <tbody>
           {testCases.map((tc) => (
             <tr key={tc.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(tc.id)}
+                  onChange={(e) => handleSelectOne(tc.id, e.target.checked)}
+                />
+              </td>
               <td>#{tc.id.substring(0, 8)}</td>
               <td>{tc.title}</td>
               <td>{tc.module}</td>
               <td>{tc.priority}</td>
               <td>{tc.severity}</td>
               <td>{tc.status}</td>
-              <td style={{ textAlign: "center" }}>{tc.steps?.length || 0}</td>
-
+              <td>{tc.steps?.length || 0}</td>
               <td>
                 <button onClick={() => handleEdit(tc.id)}>Edit</button>{" "}
                 <button onClick={() => handleClone(tc.id)}>Clone</button>{" "}
@@ -127,7 +235,7 @@ const TestCaseList = () => {
                 </button>{" "}
                 <button
                   onClick={() => {
-                    setSelectedTestCaseId(tc.id); 
+                    setSelectedTestCaseId(tc.id);
                     setIsTemplateModalOpen(true);
                   }}
                 >
@@ -139,7 +247,7 @@ const TestCaseList = () => {
         </tbody>
       </table>
 
-      {/*  MODAL JSX (OUTSIDE MAP, INSIDE RETURN) */}
+      {/* TEMPLATE MODAL */}
       {isTemplateModalOpen && (
         <div style={{ border: "1px solid #ccc", padding: 20, marginTop: 20 }}>
           <h3>Create Template</h3>
@@ -152,7 +260,7 @@ const TestCaseList = () => {
           <br /><br />
 
           <input
-            placeholder="Category (e.g. Login Tests)"
+            placeholder="Category"
             value={templateCategory}
             onChange={(e) => setTemplateCategory(e.target.value)}
           />
