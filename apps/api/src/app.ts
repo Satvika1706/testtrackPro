@@ -4,6 +4,9 @@ import authRoutes from "./routes/auth.routes";
 import protectedRoutes from "./routes/protected.routes";
 import testCaseRoutes from "./modules/testcases/testcase.routes";
 
+import testSuiteRoutes from "./routes/test-suites/testsuite.routes";
+
+
 
 
 
@@ -20,4 +23,5 @@ app.get("/health", (_req, res) => {
   res.json({ status: "Backend is running" });
 });
 app.use("/api", testCaseRoutes);
+app.use("/api", testSuiteRoutes);
 export default app;

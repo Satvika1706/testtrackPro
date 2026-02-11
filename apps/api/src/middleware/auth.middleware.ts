@@ -32,7 +32,7 @@ export const requireAuth = (
       role: string;
     };
 
-    // ✅ assign custom payload
+    
     req.user = decoded;
     next();
   } catch {

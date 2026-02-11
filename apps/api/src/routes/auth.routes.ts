@@ -12,8 +12,8 @@ router.post("/register", async (req, res) => {
     const { email, password, role } = req.body;
 
     // Basic validation
-    if (!email || !password || !role) {
-      return res.status(400).json({ message: "All fields are required" });
+    if (!email || !password ) {
+      return res.status(400).json({ message: "email and password are required" });
     }
 
     // Check if user already exists
@@ -28,14 +28,14 @@ router.post("/register", async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        role,
-      },
-    });
+  data: {
+    email,
+    password: hashedPassword,
+    role: "TESTER",
+  },
+});
+
 
     return res.status(201).json({
       message: "User registered successfully",

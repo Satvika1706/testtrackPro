@@ -5,7 +5,7 @@ import {
   deleteTestCase,
   saveTestCaseAsTemplate,
 } from "../api/testcases.api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Added useNavigate
 
 interface TestCase {
   id: string;
@@ -20,16 +20,14 @@ interface TestCase {
 const TestCaseList = () => {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // ✅ BULK SELECTION STATE
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState("");
-
-  // TEMPLATE STATES (existing)
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [templateCategory, setTemplateCategory] = useState("");
+
+  const navigate = useNavigate(); // Initialize navigate
 
   const fetchTestCases = async () => {
     try {
@@ -46,16 +44,19 @@ const TestCaseList = () => {
     fetchTestCases();
   }, []);
 
-  // ---------------- SINGLE ACTIONS ----------------
+  // ---------- SINGLE ACTIONS ----------
 
-  const handleEdit = (id: string) => {
-    window.location.href = `/test-cases/${id}`;
-  };
+
+const handleEdit = (id: string) => {
+  navigate(`/test-case/edit/${id}`);
+
+};
+
 
   const handleClone = async (id: string) => {
     try {
       await cloneTestCase(id);
-      await fetchTestCases();
+      fetchTestCases();
     } catch {
       alert("Clone failed");
     }
@@ -65,83 +66,54 @@ const TestCaseList = () => {
     if (!window.confirm("Delete this test case?")) return;
     try {
       await deleteTestCase(id);
-      setTestCases((prev) => prev.filter((tc) => tc.id !== id));
+      setTestCases(prev => prev.filter(tc => tc.id !== id));
     } catch {
       alert("Delete failed");
     }
   };
 
-  // ---------------- BULK ACTIONS ----------------
-
+  // ---------- BULK ACTIONS ----------
   const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(testCases.map(tc => tc.id));
-    } else {
-      setSelectedIds([]);
-    }
+    setSelectedIds(checked ? testCases.map(tc => tc.id) : []);
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedIds(prev => [...prev, id]);
-    } else {
-      setSelectedIds(prev => prev.filter(x => x !== id));
-    }
+    setSelectedIds(prev =>
+      checked ? [...prev, id] : prev.filter(x => x !== id)
+    );
   };
 
   const handleBulkDelete = async () => {
-  if (selectedIds.length === 0) return;
-
-  if (!window.confirm("Delete selected test cases?")) return;
-
-  try {
-    // Call delete API for all selected test cases
-    await Promise.all(
-      selectedIds.map(id => deleteTestCase(id))
-    );
-
-    // ✅ Update UI immediately
-    setTestCases(prev =>
-      prev.filter(tc => !selectedIds.includes(tc.id))
-    );
-
-    // Clear selection
-    setSelectedIds([]);
-  } catch (error) {
-    alert("Bulk delete failed");
-  }
-};
-
-  const handleBulkStatusUpdate = async () => {
-    if (!bulkStatus || selectedIds.length === 0) return;
-
+    if (selectedIds.length === 0) return;
+    if (!window.confirm("Delete selected test cases?")) return;
     try {
-      // simple local update (API can be added later)
-      setTestCases(prev =>
-        prev.map(tc =>
-          selectedIds.includes(tc.id)
-            ? { ...tc, status: bulkStatus }
-            : tc
-        )
-      );
+      await Promise.all(selectedIds.map(id => deleteTestCase(id)));
+      setTestCases(prev => prev.filter(tc => !selectedIds.includes(tc.id)));
       setSelectedIds([]);
-      setBulkStatus("");
     } catch {
-      alert("Bulk update failed");
+      alert("Bulk delete failed");
     }
   };
 
-  // ---------------- TEMPLATE ----------------
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedIds.length === 0) return;
+    setTestCases(prev =>
+      prev.map(tc =>
+        selectedIds.includes(tc.id) ? { ...tc, status: bulkStatus } : tc
+      )
+    );
+    setSelectedIds([]);
+    setBulkStatus("");
+  };
 
+  // ---------- TEMPLATE ----------
   const handleSaveTemplate = async () => {
     if (!selectedTestCaseId) return;
-
     try {
       await saveTestCaseAsTemplate(selectedTestCaseId, {
         name: templateName,
         category: templateCategory,
       });
-
       alert("Template created successfully");
       setIsTemplateModalOpen(false);
       setTemplateName("");
@@ -152,120 +124,130 @@ const TestCaseList = () => {
   };
 
   if (loading) return <p>Loading test cases...</p>;
-  if (testCases.length === 0) return <p>No test cases found.</p>;
 
   return (
     <div style={{ padding: 20 }}>
       <h2>Test Cases</h2>
 
-      <Link to="/templates">Go to Templates</Link>
-
-      {/* -------- BULK ACTION BAR -------- */}
-      <div style={{ margin: "15px 0" }}>
-        <button
-          disabled={selectedIds.length === 0}
-          onClick={handleBulkDelete}
-          style={{ color: "red", marginRight: 10 }}
-        >
-          Delete Selected
-        </button>
-
-        <select
-          value={bulkStatus}
-          onChange={(e) => setBulkStatus(e.target.value)}
-        >
-          <option value="">Update Status</option>
-          <option value="DRAFT">Draft</option>
-          <option value="READY">Ready</option>
-          <option value="APPROVED">Approved</option>
-        </select>
-
-        <button
-          onClick={handleBulkStatusUpdate}
-          disabled={!bulkStatus || selectedIds.length === 0}
-          style={{ marginLeft: 10 }}
-        >
-          Apply
-        </button>
+      <div style={{ marginBottom: 15 }}>
+        <Link to="/test-cases/create">
+          <button>Create Test Case</button>
+        </Link>{" "}
+        <Link to="/templates">Go to Templates</Link>
       </div>
 
-      <table border={1} cellPadding={10} width="100%">
-        <thead>
-          <tr>
-            <th>
-              <input
-                type="checkbox"
-                checked={selectedIds.length === testCases.length}
-                onChange={(e) => handleSelectAll(e.target.checked)}
-              />
-            </th>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Module</th>
-            <th>Priority</th>
-            <th>Severity</th>
-            <th>Status</th>
-            <th>Steps</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      {testCases.length === 0 ? (
+        <p>No test cases found.</p>
+      ) : (
+        <>
+          <div style={{ margin: "15px 0" }}>
+            <button
+              disabled={selectedIds.length === 0}
+              onClick={handleBulkDelete}
+              style={{ color: "red", marginRight: 10 }}
+            >
+              Delete Selected
+            </button>
 
-        <tbody>
-          {testCases.map((tc) => (
-            <tr key={tc.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(tc.id)}
-                  onChange={(e) => handleSelectOne(tc.id, e.target.checked)}
-                />
-              </td>
-              <td>#{tc.id.substring(0, 8)}</td>
-              <td>{tc.title}</td>
-              <td>{tc.module}</td>
-              <td>{tc.priority}</td>
-              <td>{tc.severity}</td>
-              <td>{tc.status}</td>
-              <td>{tc.steps?.length || 0}</td>
-              <td>
-                <button onClick={() => handleEdit(tc.id)}>Edit</button>{" "}
-                <button onClick={() => handleClone(tc.id)}>Clone</button>{" "}
-                <button onClick={() => handleDelete(tc.id)} style={{ color: "red" }}>
-                  Delete
-                </button>{" "}
-                <button
-                  onClick={() => {
-                    setSelectedTestCaseId(tc.id);
-                    setIsTemplateModalOpen(true);
-                  }}
-                >
-                  Save as Template
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            <select
+              value={bulkStatus}
+              onChange={(e) => setBulkStatus(e.target.value)}
+            >
+              <option value="">Update Status</option>
+              <option value="DRAFT">Draft</option>
+              <option value="READY_FOR_REVIEW">Ready</option>
+              <option value="APPROVED">Approved</option>
+            </select>
+
+            <button
+              onClick={handleBulkStatusUpdate}
+              disabled={!bulkStatus || selectedIds.length === 0}
+              style={{ marginLeft: 10 }}
+            >
+              Apply
+            </button>
+          </div>
+
+          <table border={1} cellPadding={10} width="100%" style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === testCases.length && testCases.length > 0}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                  />
+                </th>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Module</th>
+                <th>Priority</th>
+                <th>Severity</th>
+                <th>Status</th>
+                <th>Steps</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {testCases.map((tc) => (
+                <tr key={tc.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(tc.id)}
+                      onChange={(e) => handleSelectOne(tc.id, e.target.checked)}
+                    />
+                  </td>
+                  <td>#{tc.id.substring(0, 8)}</td>
+                  <td>{tc.title}</td>
+                  <td>{tc.module}</td>
+                  <td>{tc.priority}</td>
+                  <td>{tc.severity}</td>
+                  <td>{tc.status}</td>
+                  <td>{tc.steps?.length || 0}</td>
+                  <td>
+                    {/* Fixed function call */}
+                    <button onClick={() => handleEdit(tc.id)}>Edit</button>{" "}
+                    <button onClick={() => handleClone(tc.id)}>Clone</button>{" "}
+                    <button
+                      onClick={() => handleDelete(tc.id)}
+                      style={{ color: "red" }}
+                    >
+                      Delete
+                    </button>{" "}
+                    <button
+                      onClick={() => {
+                        setSelectedTestCaseId(tc.id);
+                        setIsTemplateModalOpen(true);
+                      }}
+                    >
+                      Save as Template
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
 
       {/* TEMPLATE MODAL */}
       {isTemplateModalOpen && (
-        <div style={{ border: "1px solid #ccc", padding: 20, marginTop: 20 }}>
+        <div style={{ border: "1px solid #ccc", padding: 20, marginTop: 20, maxWidth: "300px" }}>
           <h3>Create Template</h3>
-
           <input
             placeholder="Template Name"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
+            style={{ width: "100%", marginBottom: "10px" }}
           />
-          <br /><br />
-
           <input
             placeholder="Category"
             value={templateCategory}
             onChange={(e) => setTemplateCategory(e.target.value)}
+            style={{ width: "100%", marginBottom: "10px" }}
           />
-          <br /><br />
-
           <button onClick={handleSaveTemplate}>Save</button>{" "}
           <button onClick={() => setIsTemplateModalOpen(false)}>Cancel</button>
         </div>

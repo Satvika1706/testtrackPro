@@ -15,16 +15,17 @@ enum Role {
 }
 
 model User {
-  id        Int        @id @default(autoincrement())
-  email     String     @unique
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
   password  String
-  role      Role
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  role      Role     @default(TESTER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   testCases TestCase[]
   templates TestCaseTemplate[]
-
 }
+
 
 enum Priority {
   CRITICAL
@@ -106,6 +107,8 @@ model TestCase {
 
   @@index([status, priority])
   history     TestCaseHistory[]
+  testSuites  TestSuiteTestCase[]
+
 }
 
 model TestStep {
@@ -184,3 +187,39 @@ model TestCaseTemplate {
 
   isActive Boolean @default(true)
 }
+
+model TestSuite {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  module        String?
+  
+  // Hierarchy (Parent / Child Suites)
+  parentSuiteId String?
+  parentSuite   TestSuite?  @relation("SuiteHierarchy", fields: [parentSuiteId], references: [id])
+  childSuites   TestSuite[] @relation("SuiteHierarchy")
+
+  // Relations
+  testCases     TestSuiteTestCase[]
+
+  // Management
+  isArchived    Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model TestSuiteTestCase {
+  id          String   @id @default(uuid())
+  testSuiteId String
+  testCaseId  String
+
+  // Order of execution inside suite
+  order       Int
+
+  testSuite   TestSuite @relation(fields: [testSuiteId], references: [id])
+  testCase    TestCase  @relation(fields: [testCaseId], references: [id])
+
+  @@unique([testSuiteId, testCaseId])
+}
+
