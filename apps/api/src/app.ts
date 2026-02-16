@@ -6,6 +6,10 @@ import testCaseRoutes from "./modules/testcases/testcase.routes";
 
 import testSuiteRoutes from "./routes/test-suites/testsuite.routes";
 
+import testRunRoutes from "./modules/testrun/testrun.routes";
+import executionRoutes from "./modules/execution/execution.routes";
+
+
 
 
 
@@ -24,4 +28,6 @@ app.get("/health", (_req, res) => {
 });
 app.use("/api", testCaseRoutes);
 app.use("/api", testSuiteRoutes);
+app.use("/api/test-runs", testRunRoutes);
+app.use("/api", executionRoutes);
 export default app;

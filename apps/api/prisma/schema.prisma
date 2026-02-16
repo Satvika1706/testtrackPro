@@ -24,6 +24,9 @@ model User {
 
   testCases TestCase[]
   templates TestCaseTemplate[]
+  createdTestRuns TestRun[]
+  assignedTestRunItems TestRunItem[]
+
 }
 
 
@@ -108,6 +111,8 @@ model TestCase {
   @@index([status, priority])
   history     TestCaseHistory[]
   testSuites  TestSuiteTestCase[]
+  testRunItems TestRunItem[]
+
 
 }
 
@@ -221,5 +226,116 @@ model TestSuiteTestCase {
   testCase    TestCase  @relation(fields: [testCaseId], references: [id])
 
   @@unique([testSuiteId, testCaseId])
+}
+enum TestRunStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum ExecutionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PASSED
+  FAILED
+  BLOCKED
+}
+
+enum StepExecutionStatus {
+  PASS
+  FAIL
+  BLOCKED
+  SKIPPED
+}
+
+enum EvidenceType {
+  IMAGE
+  VIDEO
+  LOG
+  HAR
+}
+model TestRun {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  status      TestRunStatus @default(PLANNED)
+
+  startDate   DateTime?
+  endDate     DateTime?
+
+  createdById Int
+  createdBy   User @relation(fields: [createdById], references: [id])
+
+  testRunItems TestRunItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model TestRunItem {
+  id String @id @default(uuid())
+
+  testRunId  String
+  testCaseId String
+
+  assignedToId Int?
+  assignedTo   User? @relation(fields: [assignedToId], references: [id])
+
+  status ExecutionStatus @default(NOT_STARTED)
+
+  startedAt   DateTime?
+  
+  completedAt DateTime?
+
+  totalTimeSeconds Int @default(0)
+  pausedAt        DateTime?
+  accumulatedTime Int @default(0)
+
+
+  // Re-execution support
+  reExecutionOfId String?
+  reExecutionOf   TestRunItem? @relation("ReExecution", fields: [reExecutionOfId], references: [id])
+  reExecutions    TestRunItem[] @relation("ReExecution")
+
+  testRun  TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id])
+
+  stepExecutions TestExecutionStep[]
+
+  @@index([testRunId, testCaseId])
+}
+model TestExecutionStep {
+  id String @id @default(uuid())
+
+  testRunItemId String
+
+  stepNumber Int
+  action String
+  expectedResult String
+
+  actualResult String?
+  status StepExecutionStatus?
+
+  executedAt DateTime?
+
+  testRunItem TestRunItem @relation(fields: [testRunItemId], references: [id], onDelete: Cascade)
+
+  evidences ExecutionEvidence[]
+}
+model ExecutionEvidence {
+  id String @id @default(uuid())
+
+  testExecutionStepId String
+
+  fileUrl  String
+  fileName String
+  fileType EvidenceType
+  fileSize Int
+
+  uploadedAt DateTime @default(now())
+
+  testExecutionStep TestExecutionStep @relation(fields: [testExecutionStepId], references: [id], onDelete: Cascade)
+
+  @@index([testExecutionStepId])
 }
 

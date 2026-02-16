@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../api/axios";
+import { Link } from "react-router-dom";
 
 const Register = () => {
   const [email, setEmail] = useState("");
@@ -20,28 +21,39 @@ const Register = () => {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Register</h2>
+    <div className="auth-container">
+      <div className="card auth-card">
+        <h2 className="text-2xl font-bold text-center mb-6" style={{ color: 'var(--primary-color)' }}>
+          Create an Account
+        </h2>
 
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <br /><br />
+        <div className="form-group">
+          <label>Email</label>
+          <input
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <br /><br />
+        <div className="form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="Start typing..."
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-      <button onClick={handleRegister}>Register</button>
-      <br /><br />
+        <button onClick={handleRegister} className="w-full mb-4">
+          Register
+        </button>
 
-      <a href="/login">Already have an account? Login</a>
+        <p className="text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+          Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Login here</Link>
+        </p>
+      </div>
     </div>
   );
 };

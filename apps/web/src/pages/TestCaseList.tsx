@@ -5,7 +5,7 @@ import {
   deleteTestCase,
   saveTestCaseAsTemplate,
 } from "../api/testcases.api";
-import { Link, useNavigate } from "react-router-dom"; // Added useNavigate
+import { Link, useNavigate } from "react-router-dom";
 
 interface TestCase {
   id: string;
@@ -27,7 +27,7 @@ const TestCaseList = () => {
   const [templateName, setTemplateName] = useState("");
   const [templateCategory, setTemplateCategory] = useState("");
 
-  const navigate = useNavigate(); // Initialize navigate
+  const navigate = useNavigate();
 
   const fetchTestCases = async () => {
     try {
@@ -45,13 +45,9 @@ const TestCaseList = () => {
   }, []);
 
   // ---------- SINGLE ACTIONS ----------
-
-
-const handleEdit = (id: string) => {
-  navigate(`/test-case/edit/${id}`);
-
-};
-
+  const handleEdit = (id: string) => {
+    navigate(`/test-case/edit/${id}`);
+  };
 
   const handleClone = async (id: string) => {
     try {
@@ -123,28 +119,52 @@ const handleEdit = (id: string) => {
     }
   };
 
-  if (loading) return <p>Loading test cases...</p>;
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'APPROVED': return 'badge success';
+      case 'READY_FOR_REVIEW': return 'badge warning';
+      case 'DRAFT': return 'badge neutral';
+      default: return 'badge info';
+    }
+  };
+
+  const getPriorityBadgeClass = (priority: string) => {
+    switch (priority) {
+      case 'HIGH': return 'badge danger';
+      case 'MEDIUM': return 'badge warning';
+      case 'LOW': return 'badge success';
+      default: return 'badge neutral';
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Loading test cases...</div>;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Test Cases</h2>
-
-      <div style={{ marginBottom: 15 }}>
-        <Link to="/test-cases/create">
-          <button>Create Test Case</button>
-        </Link>{" "}
-        <Link to="/templates">Go to Templates</Link>
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">Test Cases</h2>
+        <div className="flex gap-4">
+          <Link to="/templates">
+            <button className="secondary">Go to Templates</button>
+          </Link>
+          <Link to="/test-cases/create">
+            <button>Create Test Case</button>
+          </Link>
+        </div>
       </div>
 
       {testCases.length === 0 ? (
-        <p>No test cases found.</p>
+        <div className="card text-center p-8 text-gray-500">
+          <p>No test cases found. Create one to get started.</p>
+        </div>
       ) : (
         <>
-          <div style={{ margin: "15px 0" }}>
+          <div className="card mb-6 flex items-center gap-4 bg-gray-50 border border-gray-200">
+            <span className="text-sm font-medium text-gray-600">Bulk Actions:</span>
             <button
               disabled={selectedIds.length === 0}
               onClick={handleBulkDelete}
-              style={{ color: "red", marginRight: 10 }}
+              className="danger px-3 py-1 text-sm"
             >
               Delete Selected
             </button>
@@ -152,6 +172,7 @@ const handleEdit = (id: string) => {
             <select
               value={bulkStatus}
               onChange={(e) => setBulkStatus(e.target.value)}
+              className="w-40 py-1"
             >
               <option value="">Update Status</option>
               <option value="DRAFT">Draft</option>
@@ -162,94 +183,107 @@ const handleEdit = (id: string) => {
             <button
               onClick={handleBulkStatusUpdate}
               disabled={!bulkStatus || selectedIds.length === 0}
-              style={{ marginLeft: 10 }}
+              className="secondary px-3 py-1 text-sm"
             >
               Apply
             </button>
           </div>
 
-          <table border={1} cellPadding={10} width="100%" style={{ borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.length === testCases.length && testCases.length > 0}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                  />
-                </th>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Module</th>
-                <th>Priority</th>
-                <th>Severity</th>
-                <th>Status</th>
-                <th>Steps</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {testCases.map((tc) => (
-                <tr key={tc.id}>
-                  <td>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}>
                     <input
                       type="checkbox"
-                      checked={selectedIds.includes(tc.id)}
-                      onChange={(e) => handleSelectOne(tc.id, e.target.checked)}
+                      checked={selectedIds.length === testCases.length && testCases.length > 0}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
                     />
-                  </td>
-                  <td>#{tc.id.substring(0, 8)}</td>
-                  <td>{tc.title}</td>
-                  <td>{tc.module}</td>
-                  <td>{tc.priority}</td>
-                  <td>{tc.severity}</td>
-                  <td>{tc.status}</td>
-                  <td>{tc.steps?.length || 0}</td>
-                  <td>
-                    {/* Fixed function call */}
-                    <button onClick={() => handleEdit(tc.id)}>Edit</button>{" "}
-                    <button onClick={() => handleClone(tc.id)}>Clone</button>{" "}
-                    <button
-                      onClick={() => handleDelete(tc.id)}
-                      style={{ color: "red" }}
-                    >
-                      Delete
-                    </button>{" "}
-                    <button
-                      onClick={() => {
-                        setSelectedTestCaseId(tc.id);
-                        setIsTemplateModalOpen(true);
-                      }}
-                    >
-                      Save as Template
-                    </button>
-                  </td>
+                  </th>
+                  <th>ID</th>
+                  <th>Title</th>
+                  <th>Module</th>
+                  <th>Priority</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {testCases.map((tc) => (
+                  <tr key={tc.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(tc.id)}
+                        onChange={(e) => handleSelectOne(tc.id, e.target.checked)}
+                      />
+                    </td>
+                    <td className="font-mono text-xs text-gray-500">#{tc.id.substring(0, 8)}</td>
+                    <td className="font-medium">{tc.title}</td>
+                    <td>{tc.module}</td>
+                    <td>
+                      <span className={getPriorityBadgeClass(tc.priority)}>{tc.priority}</span>
+                    </td>
+                    <td>{tc.severity}</td>
+                    <td>
+                      <span className={getStatusBadgeClass(tc.status)}>{tc.status}</span>
+                    </td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(tc.id)} className="secondary px-2 py-1 text-xs">Edit</button>
+                        <button onClick={() => handleClone(tc.id)} className="secondary px-2 py-1 text-xs">Clone</button>
+                        <button
+                          onClick={() => handleDelete(tc.id)}
+                          className="danger px-2 py-1 text-xs"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          className="secondary px-2 py-1 text-xs"
+                          onClick={() => {
+                            setSelectedTestCaseId(tc.id);
+                            setIsTemplateModalOpen(true);
+                          }}
+                        >
+                          Template
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 
       {/* TEMPLATE MODAL */}
       {isTemplateModalOpen && (
-        <div style={{ border: "1px solid #ccc", padding: 20, marginTop: 20, maxWidth: "300px" }}>
-          <h3>Create Template</h3>
-          <input
-            placeholder="Template Name"
-            value={templateName}
-            onChange={(e) => setTemplateName(e.target.value)}
-            style={{ width: "100%", marginBottom: "10px" }}
-          />
-          <input
-            placeholder="Category"
-            value={templateCategory}
-            onChange={(e) => setTemplateCategory(e.target.value)}
-            style={{ width: "100%", marginBottom: "10px" }}
-          />
-          <button onClick={handleSaveTemplate}>Save</button>{" "}
-          <button onClick={() => setIsTemplateModalOpen(false)}>Cancel</button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="card w-full max-w-sm p-6">
+            <h3 className="text-lg font-bold mb-4">Create Template</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Template Name</label>
+              <input
+                placeholder="e.g. Login Template"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-1">Category</label>
+              <input
+                placeholder="e.g. Authentication"
+                value={templateCategory}
+                onChange={(e) => setTemplateCategory(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setIsTemplateModalOpen(false)} className="secondary">Cancel</button>
+              <button onClick={handleSaveTemplate}>Save</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
