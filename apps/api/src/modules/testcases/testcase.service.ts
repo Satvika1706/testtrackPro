@@ -45,16 +45,19 @@ export const getTestCaseByIdService = async (id: string) => {
 };
 // 4. UPDATE 
 
+
 export const updateTestCaseService = async (
   id: string,
   data: any,
   userId: number
 ) => {
-  // 1 Fetch existing test case WITH steps
+  
   const existing = await prisma.testCase.findUnique({
     where: { id },
     include: { steps: true },
   });
+console.log("UPDATE SERVICE CALLED");
+console.log("Incoming steps:", data.steps);
 
   if (!existing) {
     throw new Error("Test case not found");
@@ -62,7 +65,29 @@ export const updateTestCaseService = async (
 
   const newVersion = existing.version + 1;
 
-  // 2 Update TestCase
+ 
+  if (data.steps && Array.isArray(data.steps)) {
+   
+    await prisma.testStep.deleteMany({
+      where: { testCaseId: id },
+    });
+
+    
+    for (let i = 0; i < data.steps.length; i++) {
+      const step = data.steps[i];
+
+      await prisma.testStep.create({
+        data: {
+          testCaseId: id,
+          action: step.action,
+          expectedResult: step.expectedResult,
+          stepNumber: i + 1,
+        },
+      });
+    }
+  }
+
+  
   const updated = await prisma.testCase.update({
     where: { id },
     data: {
@@ -79,10 +104,10 @@ export const updateTestCaseService = async (
       version: newVersion,
       updatedAt: new Date(),
     },
-    include: { steps: true }, 
+    include: { steps: true },
   });
 
-  // 3 Convert steps → JSON-safe snapshot
+
   const stepsSnapshot = updated.steps.map(step => ({
     id: step.id,
     action: step.action,
@@ -90,13 +115,11 @@ export const updateTestCaseService = async (
     stepNumber: step.stepNumber
   }));
 
-  // 4 Create History Snapshot 
   await prisma.testCaseHistory.create({
     data: {
       testCaseId: id,
       version: newVersion,
 
-      // Snapshot fields 
       title: updated.title,
       description: updated.description,
       module: updated.module,
@@ -108,7 +131,7 @@ export const updateTestCaseService = async (
       testData: updated.testData,
       environment: updated.environment,
 
-      stepsSnapshot, 
+      stepsSnapshot,
       changedBy: userId,
       changedAt: new Date(),
     },
@@ -116,6 +139,7 @@ export const updateTestCaseService = async (
 
   return updated;
 };
+;
 
 
 export const deleteTestCaseService = async (id: string) => {

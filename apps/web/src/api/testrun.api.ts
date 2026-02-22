@@ -12,3 +12,9 @@ export const getRunProgress = (id: string) =>
 
 export const getTestRunItems = (id: string) =>
   api.get(`/api/test-runs/${id}/items`);
+
+export const createTestRun = (data: {
+  name: string;
+  description?: string;
+  testCaseIds: string[];
+}) => api.post("/api/test-runs", data);

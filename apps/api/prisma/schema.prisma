@@ -11,7 +11,8 @@ datasource db {
 enum Role {
   TESTER
   DEVELOPER
-  
+  ADMIN
+  TRIAGE
 }
 
 model User {
@@ -26,6 +27,14 @@ model User {
   templates TestCaseTemplate[]
   createdTestRuns TestRun[]
   assignedTestRunItems TestRunItem[]
+  
+  assignedBugs  Bug[] @relation("AssignedBugs")
+  createdBugs   Bug[] @relation("CreatedBugs")
+  bugComments   BugComment[] @relation("BugComments")
+  deletedBugs   Bug[] @relation("DeletedBugs")
+  bugDeletionAudits BugDeletionAudit[] @relation("BugDeletionAudits")
+
+  notifications Notification[]
 
 }
 
@@ -337,5 +346,131 @@ model ExecutionEvidence {
   testExecutionStep TestExecutionStep @relation(fields: [testExecutionStepId], references: [id], onDelete: Cascade)
 
   @@index([testExecutionStepId])
+}
+enum BugSeverity {
+  BLOCKER
+  CRITICAL
+  MAJOR
+  MINOR
+  TRIVIAL
+}
+
+enum BugPriority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum BugStatus {
+  NEW
+  TRIAGE_PENDING
+  TRIAGED
+  OPEN
+  IN_PROGRESS
+  FIXED
+  VERIFIED
+  CLOSED
+  REOPENED
+  WONT_FIX_REQUESTED
+  WONT_FIX
+  DUPLICATE
+  REJECTED
+  SOFT_DELETED
+}
+model Bug {
+  id                String       @id @default(uuid())
+  bugId             String       @unique
+  title             String
+  description       String
+  stepsToReproduce  String
+  expectedBehavior  String
+  actualBehavior    String
+  severity          BugSeverity
+  priority          BugPriority
+  status            BugStatus    @default(NEW)
+  environment       String?
+  affectedVersion   String?
+  workStartedAt     DateTime?
+  fixedAt           DateTime?
+  retestRequestedAt DateTime?
+  fixNotes          String?
+  fixCommitRef      String?
+  resolutionSummary String?
+  wontFixReason     String?
+  assignedToId      Int?
+  createdById       Int
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  deletedById       Int?
+  deletedAt         DateTime?
+  deletionReason    String?
+
+  assignedTo  User? @relation("AssignedBugs", fields: [assignedToId], references: [id])
+  createdBy   User  @relation("CreatedBugs", fields: [createdById], references: [id])
+  comments    BugComment[]
+  deletedBy   User? @relation("DeletedBugs", fields: [deletedById], references: [id])
+  deletionAudits BugDeletionAudit[]
+}
+
+enum BugDeletionAction {
+  SOFT_DELETE
+  RESTORE
+}
+
+model BugDeletionAudit {
+  id             String            @id @default(uuid())
+  bugId          String
+  action         BugDeletionAction
+  performedById  Int
+  performedAt    DateTime          @default(now())
+  reason         String?
+  previousStatus BugStatus?
+  newStatus      BugStatus?
+
+  bug            Bug               @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  performedBy    User              @relation("BugDeletionAudits", fields: [performedById], references: [id])
+
+  @@index([bugId, performedAt])
+}
+
+model BugComment {
+  id              String       @id @default(uuid())
+  bugId           String
+  parentCommentId String?
+  content         String
+  contentFormat   String       @default("MARKDOWN")
+  createdById     Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  editedAt        DateTime?
+  deletedAt       DateTime?
+
+  bug           Bug         @relation(fields: [bugId], references: [id], onDelete: Cascade)
+  createdBy     User        @relation("BugComments", fields: [createdById], references: [id])
+  parentComment BugComment? @relation("BugCommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       BugComment[] @relation("BugCommentThread")
+
+  @@index([bugId, createdAt])
+  @@index([parentCommentId])
+}
+
+enum NotificationType {
+  BUG_ASSIGNED
+  BUG_STATUS_CHANGED
+  BUG_TRIAGE_REQUIRED
+  BUG_WONT_FIX_REVIEW
+  BUG_COMMENTED
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      Int
+  type        NotificationType
+  referenceId String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
 }
 

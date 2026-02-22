@@ -12,6 +12,10 @@ import TestSuiteDetails from "./pages/TestSuiteDetails";
 import ExecutionPage from "./pages/ExecutionPage";
 import TestRunPage from "./pages/TestRunPage";
 import TestRunListPage from "./pages/TestRunListPage";
+import BugListPage from "./pages/BugListPage";
+import CreateBugPage from "./pages/CreateBugPage";
+import BugDetailsPage from "./pages/BugDetailsPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 function App() {
   return (
@@ -33,6 +37,10 @@ function App() {
           <Route path="/test-runs" element={<TestRunListPage />} />
           <Route path="/test-runs/:id" element={<TestRunPage />} />
           <Route path="/execution/:id" element={<ExecutionPage />} />
+          <Route path="/bugs" element={<BugListPage />} />
+          <Route path="/bugs/create" element={<CreateBugPage />} />
+          <Route path="/bugs/:id" element={<BugDetailsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

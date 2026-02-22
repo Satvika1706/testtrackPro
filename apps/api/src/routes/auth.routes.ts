@@ -7,16 +7,16 @@ const router = Router();
 /**
  * POST /auth/register
  */
+
+import jwt from "jsonwebtoken";
 router.post("/register", async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // Basic validation
-    if (!email || !password ) {
+    if (!email || !password) {
       return res.status(400).json({ message: "email and password are required" });
     }
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -25,17 +25,21 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await prisma.user.create({
-  data: {
-    email,
-    password: hashedPassword,
-    role: "TESTER",
-  },
-});
+    // 🔐 Allow only TESTER or DEVELOPER
+    const allowedRoles = ["TESTER", "DEVELOPER", "TRIAGE", "ADMIN"];
+    const selectedRole = allowedRoles.includes(role)
+      ? role
+      : "TESTER";
 
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        role: selectedRole,
+      },
+    });
 
     return res.status(201).json({
       message: "User registered successfully",
@@ -45,12 +49,12 @@ router.post("/register", async (req, res) => {
         role: user.role,
       },
     });
+
   } catch (error) {
     console.error("Register error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-import jwt from "jsonwebtoken";
 
 /**
  * POST /auth/login
@@ -84,7 +88,7 @@ router.post("/login", async (req, res) => {
         role: user.role,
       },
       process.env.JWT_SECRET as string,
-      { expiresIn: "15m" }
+      { expiresIn: "10m" }
     );
 
     return res.json({

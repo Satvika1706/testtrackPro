@@ -19,12 +19,13 @@ const router = Router();
 router.get("/test-cases", requireAuth, getTestCases);
 router.post("/test-cases", requireAuth, requireRole(["TESTER"]),createTestCase);
 router.get("/test-cases/:id", requireAuth, getTestCaseById);
-router.put("/test-cases/:id", requireAuth, updateTestCaseController);
-router.delete("/test-cases/:id", requireAuth, deleteTestCase);
-router.post("/test-cases/:id/clone", requireAuth, cloneTestCase);
+router.put("/test-cases/:id", requireAuth, requireRole(["TESTER"]), updateTestCaseController);
+router.delete("/test-cases/:id", requireAuth, requireRole(["TESTER"]),deleteTestCase);
+router.post("/test-cases/:id/clone", requireAuth,requireRole(["TESTER"]),cloneTestCase);
 router.get(
   "/test-cases/:id/history",
   requireAuth,
+  requireRole(["TESTER"]),
   getTestCaseHistory
 );
 import { createTemplateFromTestCase } from "./testcase.controller";
@@ -32,14 +33,14 @@ import { createTemplateFromTestCase } from "./testcase.controller";
 router.post(
   "/test-cases/:id/template",
   requireAuth,
+  requireRole(["TESTER"]),
   createTemplateFromTestCase
 );
-router.post("/test", (req, res) => {
-  res.send("OK");
-});
+
 router.get(
   "/test-case-templates",
   requireAuth,
+  requireRole(["TESTER"]),
   getTestCaseTemplates
 );
 

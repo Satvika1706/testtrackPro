@@ -94,10 +94,11 @@ const CreateTestCase = () => {
       <select onChange={(e) => setStatus(e.target.value)}>
         <option value="DRAFT">DRAFT</option>
         <option value="READY_FOR_REVIEW">READY_FOR_REVIEW</option>
+        <option value="APPROVED">APPROVED</option>
       </select>
 
       <h3>Steps</h3>
-      {steps.map((step, index) => (
+      {steps.map((_, index) => (
         <div key={index}>
           <input
             placeholder="Action"

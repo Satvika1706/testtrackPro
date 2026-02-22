@@ -8,6 +8,8 @@ import testSuiteRoutes from "./routes/test-suites/testsuite.routes";
 
 import testRunRoutes from "./modules/testrun/testrun.routes";
 import executionRoutes from "./modules/execution/execution.routes";
+import bugRoutes from "./modules/bug/bug.routes";
+import notificationRoutes from "./modules/notification/notification.routes";
 
 
 
@@ -30,4 +32,6 @@ app.use("/api", testCaseRoutes);
 app.use("/api", testSuiteRoutes);
 app.use("/api/test-runs", testRunRoutes);
 app.use("/api", executionRoutes);
+app.use("/api/bugs", bugRoutes); 
+app.use("/api/notifications", notificationRoutes);
 export default app;

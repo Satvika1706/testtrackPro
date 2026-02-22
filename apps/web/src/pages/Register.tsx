@@ -5,12 +5,14 @@ import { Link } from "react-router-dom";
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("TESTER");
 
   const handleRegister = async () => {
     try {
       await api.post("/auth/register", {
         email,
         password,
+        role
       });
 
       alert("Registration successful. Please login.");
@@ -24,7 +26,7 @@ const Register = () => {
     <div className="auth-container">
       <div className="card auth-card">
         <h2 className="text-2xl font-bold text-center mb-6" style={{ color: 'var(--primary-color)' }}>
-          Create an Account
+          Welcome to TestTrack Pro! Please Register to get started.
         </h2>
 
         <div className="form-group">
@@ -45,7 +47,17 @@ const Register = () => {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-
+        <div>
+  <label>Register As</label>
+  <select value={role} onChange={(e) => setRole(e.target.value)}>
+    <option value="TESTER">Tester</option>
+    <option value="DEVELOPER">Developer</option>
+    <option value="TRIAGE">Triage</option>
+    <option value="ADMIN">Admin</option>
+  </select>
+</div>
+<br></br>
+<br></br>
         <button onClick={handleRegister} className="w-full mb-4">
           Register
         </button>

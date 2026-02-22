@@ -24,7 +24,7 @@ export const cloneTestCase = async (id: string) => {
   return res.data;
 };
 
-// SOFT DELETE TEST CASE
+// DELETE TEST CASE
 export const deleteTestCase = async (id: string) => {
   const res = await api.delete(`/api/test-cases/${id}`);
   return res.data;

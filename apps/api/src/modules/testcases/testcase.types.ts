@@ -18,13 +18,13 @@ export interface CreateTestCaseDTO {
   description: string;
   module: string;
 
-  // Prisma enums (EXACT MATCH)
+  
   priority: Priority;
   severity: Severity;
   type: TestType;
   status: TestStatus;
 
-  // Prisma expects STRING
+
   preConditions: string;
   testData: string;
   environment: string;

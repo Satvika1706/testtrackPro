@@ -20,10 +20,9 @@ const EditTestCase = () => {
 
   const [loading, setLoading] = useState(true);
 
-  // Version history sidebar
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  // ---------------- FETCH TEST CASE ----------------
+ 
 
   useEffect(() => {
     if (!id) return;
@@ -45,7 +44,7 @@ const EditTestCase = () => {
     fetchTestCase();
   }, [id]);
 
-  // ---------------- STEP HANDLING ----------------
+ 
 
   const addStep = () => {
     setSteps((prev) => [
@@ -68,7 +67,7 @@ const EditTestCase = () => {
     setSteps(updated);
   };
 
-  // ---------------- SAVE ----------------
+  
 
   const handleSave = async () => {
     if (!changeSummary.trim()) {

@@ -40,6 +40,17 @@ export const getAllTestRuns = async (req: AuthRequest, res: Response) => {
     return res.status(400).json({ message: error.message });
   }
 };
+export const getTestRun = async (req: AuthRequest, res: Response) => {
+  try {
+    const run = await testRunService.getTestRunById(req.params.id);
+    return res.status(200).json({
+      message: "Test run fetched successfully",
+      data: run
+    });
+  } catch (error: any) {
+    return res.status(404).json({ message: error.message });
+  }
+};
 export const getTestRunItems = async (
   req: AuthRequest,
   res: Response

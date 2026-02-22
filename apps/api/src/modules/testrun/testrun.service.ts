@@ -53,6 +53,22 @@ export const getAllTestRuns = async () => {
     }
   });
 };
+
+export const getTestRunById = async (id: string) => {
+  const run = await prisma.testRun.findUnique({
+    where: { id },
+    include: {
+      createdBy: { select: { email: true } },
+      _count: { select: { testRunItems: true } },
+    },
+  });
+
+  if (!run) {
+    throw new Error("Test run not found");
+  }
+
+  return run;
+};
 export const getTestRunItems = async (testRunId: string) => {
   return prisma.testRunItem.findMany({
     where: { testRunId },

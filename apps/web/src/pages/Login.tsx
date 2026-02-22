@@ -25,7 +25,7 @@ const Login = () => {
     <div className="auth-container">
       <div className="card auth-card">
         <h2 className="text-2xl font-bold text-center mb-6" style={{ color: 'var(--primary-color)' }}>
-          Welcome Back
+          LOGIN
         </h2>
 
         <div className="form-group">
