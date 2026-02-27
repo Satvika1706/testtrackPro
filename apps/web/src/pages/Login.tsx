@@ -1,12 +1,16 @@
 import { useState } from "react";
 import api from "../api/axios";
 import { Link } from "react-router-dom";
+import { getCurrentUser } from "../utils/auth";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = async () => {
+    setError("");
+
     try {
       const res = await api.post("/auth/login", {
         email,
@@ -14,10 +18,12 @@ const Login = () => {
       });
 
       localStorage.setItem("token", res.data.token);
-      window.location.href = "/test-cases";
-    } catch (err) {
-      alert("Login failed");
-      console.error(err);
+      const user = getCurrentUser();
+      window.location.href =
+        user?.role === "DEVELOPER" ? "/developer/dashboard" : "/test-cases";
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Login failed");
+      console.error("Login failed:", err);
     }
   };
 
@@ -45,11 +51,20 @@ const Login = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <p>
+  <a href="/forgot-password">Forgot Password?</a>
+</p>
         </div>
 
         <button onClick={handleLogin} className="w-full mb-4">
           Sign In
         </button>
+
+        {error && (
+          <div style={{ color: "red", textAlign: "center", marginBottom: "12px" }}>
+            {error}
+          </div>
+        )}
 
         <p className="text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
           Don't have an account? <Link to="/register" style={{ fontWeight: 600 }}>Register here</Link>

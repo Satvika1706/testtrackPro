@@ -54,7 +54,7 @@ router.post(
 router.get(
   "/",
   requireAuth,
-  requireRole(["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"]),
+  requireRole(["TESTER", "ADMIN", "TRIAGE"]),
   getBugs
 );
 

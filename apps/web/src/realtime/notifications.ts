@@ -4,7 +4,7 @@ export interface NotificationPayload {
   id: string;
   type: string;
   referenceId: string;
-  message: string;
+  message?: string;
   createdAt: string;
    isRead: boolean;
 }

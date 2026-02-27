@@ -12,7 +12,7 @@ async function main() {
   await prisma.user.upsert({
     where: { email },
     update: {
-      password: hashedPassword, // ensures password is always correct
+      password: hashedPassword,
     },
     create: {
       email,
@@ -21,12 +21,12 @@ async function main() {
     },
   });
 
-  console.log("✅ Seed user inserted/updated successfully");
+  console.log(" Seed user inserted/updated successfully");
 }
 
 main()
   .catch((err) => {
-    console.error("❌ Seed failed:", err);
+    console.error("Seed failed:", err);
   })
   .finally(async () => {
     await prisma.$disconnect();

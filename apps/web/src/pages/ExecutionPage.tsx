@@ -10,6 +10,7 @@ import {
 } from "../api/execution.api";
 import { updateStepStatus } from "../api/execution.api";
 import { createBugFromExecution } from "../api/bug.api";
+import { getCurrentUser } from "../utils/auth";
 
 interface Step {
   id: string;
@@ -32,6 +33,8 @@ interface TestRunItem {
 const ExecutionPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentUser = getCurrentUser();
+  const canExecute = currentUser?.role === "TESTER";
 
   const [item, setItem] = useState<TestRunItem | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
@@ -91,6 +94,12 @@ const ExecutionPage = () => {
 
   const handleStart = async () => {
     if (!id) return;
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       setError("");
       await startExecution(id);
@@ -102,6 +111,12 @@ const ExecutionPage = () => {
 
   const handlePause = async () => {
     if (!id) return;
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       setError("");
       await pauseExecution(id);
@@ -113,6 +128,12 @@ const ExecutionPage = () => {
 
   const handleResume = async () => {
     if (!id) return;
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       setError("");
       await resumeExecution(id);
@@ -124,6 +145,12 @@ const ExecutionPage = () => {
 
   const handleComplete = async () => {
     if (!id) return;
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       setError("");
       await completeExecution(id);
@@ -133,6 +160,12 @@ const ExecutionPage = () => {
     }
   };
   const handleStepUpdate = async (stepId: string, status: string) => {
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       await updateStepStatus(stepId, status);
 
@@ -151,6 +184,12 @@ const ExecutionPage = () => {
 
   const handleFailAndCreateBug = async (stepId: string) => {
     if (!id) return;
+    if (!canExecute) {
+      const message = "Access denied: only testers can run test execution.";
+      setError(message);
+      alert(message);
+      return;
+    }
     try {
       // Mark step as FAIL first
       await updateStepStatus(stepId, "FAIL");
@@ -182,6 +221,21 @@ const ExecutionPage = () => {
   return (
     <div style={{ padding: 20 }}>
       <h2>Execution</h2>
+      {!canExecute && (
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            borderRadius: "var(--radius-md)",
+            backgroundColor: "#fee2e2",
+            color: "#991b1b",
+            border: "1px solid #fecaca",
+            fontSize: "0.9rem",
+          }}
+        >
+          Access denied: only testers can run test execution.
+        </div>
+      )}
       {error && (
         <div
           style={{
@@ -205,18 +259,18 @@ const ExecutionPage = () => {
       {/* 🔥 Conditional Buttons */}
       <div style={{ marginBottom: 20 }}>
         {item.status === "NOT_STARTED" && (
-          <button onClick={handleStart}>Start</button>
+          <button onClick={handleStart} disabled={!canExecute}>Start</button>
         )}
 
         {item.status === "IN_PROGRESS" && (
           <>
-            <button onClick={handlePause}>Pause</button>
-            <button onClick={handleComplete}>Complete</button>
+            <button onClick={handlePause} disabled={!canExecute}>Pause</button>
+            <button onClick={handleComplete} disabled={!canExecute}>Complete</button>
           </>
         )}
 
         {item.pausedAt && (
-          <button onClick={handleResume}>Resume</button>
+          <button onClick={handleResume} disabled={!canExecute}>Resume</button>
         )}
 
         {item.status === "PASSED" && (
@@ -247,7 +301,7 @@ const ExecutionPage = () => {
             </p>
 
             <button
-              disabled={!!step.status}
+              disabled={!!step.status || !canExecute}
               onClick={() => handleStepUpdate(step.id, "PASS")}
               style={{ marginRight: 5 }}
             >
@@ -255,7 +309,7 @@ const ExecutionPage = () => {
             </button>
 
             <button
-              disabled={!!step.status}
+              disabled={!!step.status || !canExecute}
               onClick={() => handleStepUpdate(step.id, "FAIL")}
               style={{ marginRight: 5 }}
             >
@@ -263,14 +317,14 @@ const ExecutionPage = () => {
             </button>
 
             <button
-              disabled={!!step.status}
+              disabled={!!step.status || !canExecute}
               onClick={() => handleStepUpdate(step.id, "BLOCKED")}
             >
               BLOCKED
             </button>
 
             <button
-              disabled={!!step.status}
+              disabled={!!step.status || !canExecute}
               onClick={() => handleFailAndCreateBug(step.id)}
               className="danger"
               style={{ marginLeft: 5 }}

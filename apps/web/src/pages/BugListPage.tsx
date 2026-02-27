@@ -34,7 +34,8 @@ const BugListPage = () => {
   const [bugs, setBugs] = useState<BugItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"all" | "my">("all");
+  const isDeveloper = user?.role === "DEVELOPER";
+  const mode: "all" | "my" = isDeveloper ? "my" : "all";
 
   const loadBugs = async () => {
     setLoading(true);
@@ -61,13 +62,10 @@ const BugListPage = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Bugs</h2>
+        <h2 className="text-2xl font-bold text-gray-800">
+          {isDeveloper ? "My Assigned Bugs" : "Bugs"}
+        </h2>
         <div className="flex gap-2">
-          {user?.role === "DEVELOPER" && (
-            <button className="secondary" onClick={() => setMode(mode === "all" ? "my" : "all")}>
-              {mode === "all" ? "Show My Assigned" : "Show All"}
-            </button>
-          )}
           {(user?.role === "TESTER" || user?.role === "ADMIN") && (
             <button onClick={() => navigate("/bugs/create")}>+ Report Bug</button>
           )}

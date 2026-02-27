@@ -14,46 +14,46 @@ import {
   getExecutionSteps
 } from "./testrun.controller";
 import { updateExecutionStepStatus } from "./testrun.controller";
-import { requireRole } from "../../middleware/role.middleware";
+import { authorizeRoles } from "../../middleware/role.middleware";
 
 const router = Router();
-const EXECUTION_ROLES = ["TESTER", "DEVELOPER", "ADMIN"];
+const EXECUTION_ROLES = ["TESTER"];
 
 /**
  * @route   POST /api/test-runs
  * @desc    Create a new test run
  * @access  Private 
  */
-router.post("/", requireAuth, createTestRun);
-router.get("/", requireAuth,  getAllTestRuns);
-router.get("/:id", requireAuth, getTestRun);
+router.post("/", requireAuth, authorizeRoles(["TESTER"]), createTestRun);
+router.get("/", requireAuth, authorizeRoles(["TESTER"]), getAllTestRuns);
+router.get("/:id", requireAuth, authorizeRoles(["TESTER"]), getTestRun);
 
 
 
-router.post("/items/:id/start", requireAuth, requireRole(EXECUTION_ROLES), startExecution);
+router.post("/items/:id/start", requireAuth, authorizeRoles(EXECUTION_ROLES), startExecution);
 
 
-router.post("/items/:id/complete", requireAuth, requireRole(EXECUTION_ROLES), completeExecution);
-router.post("/items/:id/pause", requireAuth, requireRole(EXECUTION_ROLES), pauseExecution);
-router.post("/items/:id/resume", requireAuth, requireRole(EXECUTION_ROLES), resumeExecution);
-router.get("/items/:id", requireAuth,getTestRunItem);
-router.get("/items/:id/steps", requireAuth, getExecutionSteps);
+router.post("/items/:id/complete", requireAuth, authorizeRoles(EXECUTION_ROLES), completeExecution);
+router.post("/items/:id/pause", requireAuth, authorizeRoles(EXECUTION_ROLES), pauseExecution);
+router.post("/items/:id/resume", requireAuth, authorizeRoles(EXECUTION_ROLES), resumeExecution);
+router.get("/items/:id", requireAuth, authorizeRoles(["TESTER"]), getTestRunItem);
+router.get("/items/:id/steps", requireAuth, authorizeRoles(["TESTER"]), getExecutionSteps);
 
 import { assignTestRunItem } from "./testrun.controller";
 
 router.patch(
   "/items/:id/assign",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   assignTestRunItem
 );
 
-router.get("/:id/progress", requireAuth, getRunProgress);
-router.get("/:id/items", requireAuth, getTestRunItems);
+router.get("/:id/progress", requireAuth, authorizeRoles(["TESTER"]), getRunProgress);
+router.get("/:id/items", requireAuth, authorizeRoles(["TESTER"]), getTestRunItems);
 router.patch(
   "/steps/:id/status",
   requireAuth,
-  requireRole(EXECUTION_ROLES),
+  authorizeRoles(EXECUTION_ROLES),
   updateExecutionStepStatus
 );
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllTestRuns } from "../api/testrun.api";
+import { getCurrentUser } from "../utils/auth";
 
 interface TestRun {
   id: string;
@@ -24,6 +25,8 @@ import { getTestCases } from "../api/testcases.api";
 import { createTestRun } from "../api/testrun.api";
 
 const TestRunListPage = () => {
+  const currentUser = getCurrentUser();
+  const canCreateRun = currentUser?.role === "TESTER";
   const [runs, setRuns] = useState<TestRun[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
@@ -45,6 +48,10 @@ const TestRunListPage = () => {
   };
 
   const handleOpenCreate = async () => {
+    if (!canCreateRun) {
+      alert("Access denied: only testers can create test runs.");
+      return;
+    }
     setIsCreating(true);
     try {
       const res = await getTestCases();
@@ -57,6 +64,10 @@ const TestRunListPage = () => {
 
   const handleCreateRun = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canCreateRun) {
+      alert("Access denied: only testers can create test runs.");
+      return;
+    }
     if (!newRunName || selectedCaseIds.length === 0) {
       alert("Please enter a name and select at least one test case.");
       return;
@@ -95,7 +106,7 @@ const TestRunListPage = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Test Runs</h2>
-        <button onClick={handleOpenCreate}>+ Create Test Run</button>
+        {canCreateRun && <button onClick={handleOpenCreate}>+ Create Test Run</button>}
       </div>
 
       {isCreating && (

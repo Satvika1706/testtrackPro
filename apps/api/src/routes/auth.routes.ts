@@ -1,84 +1,210 @@
 import { Router } from "express";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { prisma } from "../prisma";
+import { sendVerificationEmail } from "./sendEmail";
 
 const router = Router();
 
-/**
- * POST /auth/register
- */
+const ALLOWED_ROLES = ["TESTER", "DEVELOPER", "TRIAGE", "ADMIN"] as const;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-import jwt from "jsonwebtoken";
+function isStrongPassword(password: string): boolean {
+  const strongRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return strongRegex.test(password);
+}
+
+function isValidEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email);
+}
+
+function shouldExposeDevTokens(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
+function buildFrontendVerifyUrl(token: string): string {
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+  return `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email : "";
+    const email = rawEmail.trim().toLowerCase();
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    const role = typeof req.body?.role === "string" ? req.body.role : "TESTER";
 
     if (!email || !password) {
-      return res.status(400).json({ message: "email and password are required" });
+      return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please provide a valid email address" });
+    }
 
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({
+        message:
+          "Password must be 8+ characters with uppercase, lowercase, number and special character",
+      });
+    }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // 🔐 Allow only TESTER or DEVELOPER
-    const allowedRoles = ["TESTER", "DEVELOPER", "TRIAGE", "ADMIN"];
-    const selectedRole = allowedRoles.includes(role)
-      ? role
+    const selectedRole = ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number])
+      ? (role as (typeof ALLOWED_ROLES)[number])
       : "TESTER";
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString("hex");
 
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         role: selectedRole,
+        verificationToken,
+        isEmailVerified: false,
+        failedLoginAttempts: 0,
       },
     });
 
-    return res.status(201).json({
-      message: "User registered successfully",
+    let emailDispatch: "sent" | "failed" = "sent";
+    let emailDispatchError: string | null = null;
+
+    try {
+      await sendVerificationEmail(user.email, verificationToken);
+    } catch (error) {
+      emailDispatch = "failed";
+      emailDispatchError = "Verification email could not be sent at this time";
+      console.error("Verification email dispatch error:", error);
+    }
+
+    const response: Record<string, unknown> = {
+      message:
+        emailDispatch === "sent"
+          ? "User registered successfully. Please verify your email before logging in."
+          : "User registered successfully. Verification email is temporarily unavailable.",
+      emailDispatch,
       user: {
         id: user.id,
         email: user.email,
         role: user.role,
       },
-    });
+    };
 
+    if (emailDispatchError) {
+      response.emailDispatchError = emailDispatchError;
+    }
+
+    if (shouldExposeDevTokens()) {
+      response.verificationToken = verificationToken;
+      response.verificationUrl = buildFrontendVerifyUrl(verificationToken);
+    }
+
+    return res.status(201).json(response);
   } catch (error) {
     console.error("Register error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
 
-/**
- * POST /auth/login
- */
+router.get("/verify-email", async (req, res) => {
+  try {
+    const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+    if (!token) {
+      return res.status(400).json({ message: "Invalid token" });
+    }
+
+    const user = await prisma.user.findFirst({ where: { verificationToken: token } });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isEmailVerified: true,
+        verificationToken: null,
+      },
+    });
+
+    return res.json({ message: "Email verified successfully" });
+  } catch (error) {
+    console.error("Verify email error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email : "";
+    const email = rawEmail.trim().toLowerCase();
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password required" });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in",
+      });
+    }
 
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return res.status(403).json({
+        message: "Account locked. Try again after 15 minutes.",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      const attempts = user.failedLoginAttempts + 1;
+
+      if (attempts >= 5) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedLoginAttempts: attempts,
+            lockUntil: new Date(Date.now() + 15 * 60 * 1000),
+          },
+        });
+
+        return res.status(403).json({
+          message:
+            "Account locked due to multiple failed attempts. Try again after 15 minutes.",
+        });
+      }
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: attempts },
+      });
+
       return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockUntil: null,
+      },
+    });
+
+    if (!process.env.JWT_SECRET) {
+      console.error("Missing JWT_SECRET in environment");
+      return res.status(500).json({ message: "Server configuration error" });
     }
 
     const token = jwt.sign(
@@ -87,8 +213,8 @@ router.post("/login", async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "10m" }
+      process.env.JWT_SECRET,
+      { expiresIn: "30m" }
     );
 
     return res.json({
@@ -106,5 +232,90 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.json({
+        message: "If the email exists, a reset link has been sent.",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpiry = new Date(Date.now() + 60 * 60 * 1000);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetExpiry: resetExpiry,
+      },
+    });
+
+    const response: Record<string, unknown> = {
+      message: "If the email exists, a reset link has been sent.",
+    };
+
+    if (shouldExposeDevTokens()) {
+      response.resetToken = resetToken;
+    }
+
+    return res.json(response);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password required" });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
+        passwordResetExpiry: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired reset token" });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be 8+ characters with uppercase, lowercase, number and special character",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+
+    return res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 export default router;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth.middleware";
-import { requireRole } from "../../middleware/role.middleware";
+import { authorizeRoles } from "../../middleware/role.middleware";
 import { createTestSuite } from "./testsuite.controller";
 import { getTestSuites } from "./testsuite.controller";
 import { addTestCaseToSuite } from "./testsuite.controller";
@@ -16,26 +16,26 @@ const router = Router();
 router.post(
   "/test-suites",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   createTestSuite
 );
 
 router.get(
   "/test-suites",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   getTestSuites
 );
 router.post(
   "/test-suites/:suiteId/test-cases",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   addTestCaseToSuite
 );
 router.get(
   "/test-suites/:id",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   getTestSuiteById
 );
 
@@ -43,13 +43,13 @@ router.get(
 router.delete(
   "/test-suites/:suiteId/test-cases/:testCaseId",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   removeTestCaseFromSuite
 );
 router.put(
   "/test-suites/:suiteId/reorder",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   reorderTestCasesInSuite
 );
 import { cloneTestSuite } from "./testsuite.controller";
@@ -57,7 +57,7 @@ import { cloneTestSuite } from "./testsuite.controller";
 router.post(
   "/test-suites/:suiteId/clone",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   cloneTestSuite
 );
 
@@ -65,14 +65,14 @@ router.post(
 router.put(
   "/test-suites/:suiteId/archive",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   archiveTestSuite
 );
 
 router.put(
   "/test-suites/:suiteId/restore",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   restoreTestSuite
 );
 

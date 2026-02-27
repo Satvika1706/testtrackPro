@@ -26,6 +26,33 @@ const DashboardLayout: React.FC = () => {
     useState<NotificationPayload | null>(null);
 
   const user = useMemo(() => getCurrentUser(), []);
+  const navItems = useMemo(() => {
+    if (!user) return [];
+
+    if (user.role === "DEVELOPER") {
+      return [
+        { to: "/developer/dashboard", label: "Developer Dashboard" },
+        { to: "/bugs", label: "My Assigned Bugs" },
+        { to: "/reports", label: "Reports & Analytics" },
+      ];
+    }
+
+    if (user.role === "TESTER") {
+      return [
+        { to: "/test-cases", label: "Test Cases" },
+        { to: "/test-runs", label: "Test Runs" },
+        { to: "/templates", label: "Templates" },
+        { to: "/test-suites", label: "Test Suites" },
+        { to: "/bugs", label: "Bugs" },
+        { to: "/reports", label: "Reports & Analytics" },
+      ];
+    }
+
+    return [
+      { to: "/bugs", label: "Bugs" },
+      { to: "/reports", label: "Reports & Analytics" },
+    ];
+  }, [user]);
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -103,46 +130,16 @@ const DashboardLayout: React.FC = () => {
 
         <nav className="sidebar-nav">
           <ul>
-            <li>
-              <NavLink
-                to="/test-cases"
-                className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-              >
-                Test Cases
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/test-runs"
-                className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-              >
-                Test Runs
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/templates"
-                className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-              >
-                Templates
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/test-suites"
-                className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-              >
-                Test Suites
-              </NavLink>
-            </li>
-            <li>
-              <NavLink
-                to="/bugs"
-                className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-              >
-                Bugs
-              </NavLink>
-            </li>
+            {navItems.map((item) => (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
+                >
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
           </ul>
         </nav>
 

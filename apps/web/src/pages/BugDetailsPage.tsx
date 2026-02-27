@@ -393,7 +393,7 @@ const BugDetailsPage = () => {
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           rows={3}
-          placeholder="Add comment. Use @username for mention."
+          placeholder="Add comment. Use @email or @emailPrefix for mention."
         />
         <div className="mt-4 mb-6">
           <button onClick={() => void handleAddComment()} disabled={busy || !newComment.trim()}>Post Comment</button>

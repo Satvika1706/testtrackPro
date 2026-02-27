@@ -23,6 +23,23 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+
+  isEmailVerified      Boolean  @default(false)
+  verificationToken    String?
+
+
+  failedLoginAttempts  Int      @default(0)
+  lockUntil            DateTime?
+
+  passwordResetToken   String?
+  passwordResetExpiry  DateTime?
+
+
+  refreshTokens        RefreshToken[]
+  passwordHistory      PasswordHistory[]
+
+ 
+
   testCases TestCase[]
   templates TestCaseTemplate[]
   createdTestRuns TestRun[]
@@ -37,7 +54,21 @@ model User {
   notifications Notification[]
 
 }
-
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+model PasswordHistory {
+  id        String   @id @default(uuid())
+  password  String
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
 
 enum Priority {
   CRITICAL
@@ -457,6 +488,10 @@ model BugComment {
 
 enum NotificationType {
   BUG_ASSIGNED
+  BUG_CRITICAL_ASSIGNED
+  BUG_REOPENED
+  BUG_RETEST_REQUESTED
+  BUG_MENTIONED
   BUG_STATUS_CHANGED
   BUG_TRIAGE_REQUIRED
   BUG_WONT_FIX_REVIEW

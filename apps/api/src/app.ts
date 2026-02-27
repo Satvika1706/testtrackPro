@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/auth.routes";
@@ -10,6 +12,7 @@ import testRunRoutes from "./modules/testrun/testrun.routes";
 import executionRoutes from "./modules/execution/execution.routes";
 import bugRoutes from "./modules/bug/bug.routes";
 import notificationRoutes from "./modules/notification/notification.routes";
+import reportRoutes from "./modules/reports/report.routes";
 
 
 
@@ -34,4 +37,5 @@ app.use("/api/test-runs", testRunRoutes);
 app.use("/api", executionRoutes);
 app.use("/api/bugs", bugRoutes); 
 app.use("/api/notifications", notificationRoutes);
+app.use("/reports", reportRoutes);
 export default app;

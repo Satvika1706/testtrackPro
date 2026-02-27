@@ -10,22 +10,22 @@ import {
   getTestCaseTemplates
 } from "./testcase.controller";
 import { getTestCaseHistory } from "./testcase.controller";
-import { requireRole } from "../../middleware/role.middleware";
+import { authorizeRoles } from "../../middleware/role.middleware";
 
 
 
 const router = Router();
 
-router.get("/test-cases", requireAuth, getTestCases);
-router.post("/test-cases", requireAuth, requireRole(["TESTER"]),createTestCase);
-router.get("/test-cases/:id", requireAuth, getTestCaseById);
-router.put("/test-cases/:id", requireAuth, requireRole(["TESTER"]), updateTestCaseController);
-router.delete("/test-cases/:id", requireAuth, requireRole(["TESTER"]),deleteTestCase);
-router.post("/test-cases/:id/clone", requireAuth,requireRole(["TESTER"]),cloneTestCase);
+router.get("/test-cases", requireAuth, authorizeRoles(["TESTER"]), getTestCases);
+router.post("/test-cases", requireAuth, authorizeRoles(["TESTER"]),createTestCase);
+router.get("/test-cases/:id", requireAuth, authorizeRoles(["TESTER"]), getTestCaseById);
+router.put("/test-cases/:id", requireAuth, authorizeRoles(["TESTER"]), updateTestCaseController);
+router.delete("/test-cases/:id", requireAuth, authorizeRoles(["TESTER"]),deleteTestCase);
+router.post("/test-cases/:id/clone", requireAuth,authorizeRoles(["TESTER"]),cloneTestCase);
 router.get(
   "/test-cases/:id/history",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   getTestCaseHistory
 );
 import { createTemplateFromTestCase } from "./testcase.controller";
@@ -33,14 +33,14 @@ import { createTemplateFromTestCase } from "./testcase.controller";
 router.post(
   "/test-cases/:id/template",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   createTemplateFromTestCase
 );
 
 router.get(
   "/test-case-templates",
   requireAuth,
-  requireRole(["TESTER"]),
+  authorizeRoles(["TESTER"]),
   getTestCaseTemplates
 );
 

@@ -5,6 +5,7 @@ import {
   getRunProgress,
   getTestRunItems,
 } from "../api/testrun.api";
+import { getCurrentUser } from "../utils/auth";
 
 interface RunItem {
   id: string;
@@ -21,6 +22,7 @@ interface RunItem {
 const TestRunPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentUser = getCurrentUser();
 
   const [runName, setRunName] = useState("");
   const [progress, setProgress] = useState<any>(null);
@@ -91,7 +93,13 @@ const TestRunPage = () => {
               </td>
               <td>
                 <button
-                  onClick={() => navigate(`/execution/${item.id}`)}
+                  onClick={() => {
+                    if (currentUser?.role !== "TESTER") {
+                      alert("Access denied: only testers can run test execution.");
+                      return;
+                    }
+                    navigate(`/execution/${item.id}`);
+                  }}
                 >
                   Execute
                 </button>
