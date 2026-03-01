@@ -1,15 +1,31 @@
 import { useState } from "react";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
 import api from "../api/axios";
-import { Link } from "react-router-dom";
 import { getCurrentUser } from "../utils/auth";
 
+import {
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Stack,
+  CircularProgress,
+  Link,
+} from "@mui/material";
+
+import AuthLayout from "../layouts/AuthLayout";
+
 const Login = () => {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     setError("");
+    setLoading(true);
 
     try {
       const res = await api.post("/auth/login", {
@@ -19,58 +35,119 @@ const Login = () => {
 
       localStorage.setItem("token", res.data.token);
       const user = getCurrentUser();
-      window.location.href =
-        user?.role === "DEVELOPER" ? "/developer/dashboard" : "/test-cases";
+
+      navigate(
+        user?.role === "DEVELOPER"
+          ? "/developer/dashboard"
+          : "/test-cases"
+      );
     } catch (err: any) {
       setError(err.response?.data?.message || "Login failed");
-      console.error("Login failed:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="card auth-card">
-        <h2 className="text-2xl font-bold text-center mb-6" style={{ color: 'var(--primary-color)' }}>
-          LOGIN
-        </h2>
+    <AuthLayout>
+      <Typography
+        variant="h4"
+        fontWeight={800}
+        textAlign="center"
+        gutterBottom
+      >
+        Welcome Back
+      </Typography>
 
-        <div className="form-group">
-          <label>Email</label>
-          <input
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+      <Typography
+        variant="body1"
+        textAlign="center"
+        color="text.secondary"
+        sx={{ mb: 4 }}
+      >
+        Sign in to continue to TestTrack Pro.
+      </Typography>
 
-        <div className="form-group">
-          <label>Password</label>
-          <input
-            type="password"
-            placeholder="******"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <p>
-  <a href="/forgot-password">Forgot Password?</a>
-</p>
-        </div>
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-        <button onClick={handleLogin} className="w-full mb-4">
-          Sign In
-        </button>
+      <Stack spacing={4}>
+        <TextField
+          label="Email"
+          placeholder="name@example.com"
+          fullWidth
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-        {error && (
-          <div style={{ color: "red", textAlign: "center", marginBottom: "12px" }}>
-            {error}
-          </div>
-        )}
+        <TextField
+          label="Password"
+          type="password"
+          placeholder="******"
+          fullWidth
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-        <p className="text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
-          Don't have an account? <Link to="/register" style={{ fontWeight: 600 }}>Register here</Link>
-        </p>
-      </div>
-    </div>
+        <Link
+          component={RouterLink}
+          to="/forgot-password"
+          underline="hover"
+          sx={{
+            alignSelf: "flex-end",
+            fontSize: "0.9rem",
+            color: "text.secondary",
+            "&:hover": {
+              color: "primary.main",
+            },
+          }}
+        >
+          Forgot Password?
+        </Link>
+
+        <Button
+          variant="contained"
+          fullWidth
+          size="large"
+          disabled={loading}
+          onClick={handleLogin}
+          sx={{
+            py: 1.8,
+            borderRadius: "40px",
+            fontWeight: 700,
+            fontSize: "1.05rem",
+            textTransform: "none",
+          }}
+        >
+          {loading ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : (
+            "Sign In"
+          )}
+        </Button>
+
+        <Typography variant="body1" textAlign="center">
+          Don’t have an account?{" "}
+          <Link
+            component={RouterLink}
+            to="/register"
+            underline="hover"
+            sx={{
+              fontWeight: 600,
+              color: "text.primary",
+              "&:hover": {
+                color: "primary.main",
+              },
+            }}
+          >
+            Register here
+          </Link>
+        </Typography>
+      </Stack>
+    </AuthLayout>
   );
 };
 

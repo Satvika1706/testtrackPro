@@ -13,6 +13,7 @@ import executionRoutes from "./modules/execution/execution.routes";
 import bugRoutes from "./modules/bug/bug.routes";
 import notificationRoutes from "./modules/notification/notification.routes";
 import reportRoutes from "./modules/reports/report.routes";
+import adminRoutes from "./modules/admin/admin.routes";
 
 
 
@@ -38,4 +39,5 @@ app.use("/api", executionRoutes);
 app.use("/api/bugs", bugRoutes); 
 app.use("/api/notifications", notificationRoutes);
 app.use("/reports", reportRoutes);
+app.use("/api/admin", adminRoutes);
 export default app;

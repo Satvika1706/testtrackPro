@@ -1,31 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
 import { getAllBugs, getMyAssignedBugs, type BugItem } from "../api/bug.api";
 import { getCurrentUser } from "../utils/auth";
 
-const formatStatus = (status: string) => status.replace(/_/g, " ").replace("WONT", "WON'T");
-
-const getBadge = (kind: "severity" | "priority" | "status", value: string) => {
-  if (kind === "severity") {
-    if (value === "BLOCKER" || value === "CRITICAL") return "badge danger";
-    if (value === "MAJOR") return "badge warning";
-    if (value === "MINOR") return "badge info";
-    return "badge neutral";
-  }
-
-  if (kind === "priority") {
-    if (value === "P1") return "badge danger";
-    if (value === "P2") return "badge warning";
-    if (value === "P3") return "badge info";
-    return "badge neutral";
-  }
-
-  if (value === "IN_PROGRESS") return "badge warning";
-  if (value === "FIXED" || value === "VERIFIED") return "badge success";
-  if (value === "REOPENED") return "badge danger";
-  if (value === "OPEN" || value === "TRIAGE_PENDING" || value === "TRIAGED") return "badge info";
-  return "badge neutral";
-};
+const formatStatus = (status: string) =>
+  status.replace(/_/g, " ").replace("WONT", "WON'T");
 
 const BugListPage = () => {
   const navigate = useNavigate();
@@ -59,68 +53,127 @@ const BugListPage = () => {
     void loadBugs();
   }, [mode]);
 
+  const getChipColor = (kind: "severity" | "priority" | "status", value: string) => {
+    if (kind === "severity") {
+      if (value === "BLOCKER" || value === "CRITICAL") return "error";
+      if (value === "MAJOR") return "warning";
+      if (value === "MINOR") return "info";
+      return "default";
+    }
+
+    if (kind === "priority") {
+      if (value === "P1") return "error";
+      if (value === "P2") return "warning";
+      if (value === "P3") return "info";
+      return "default";
+    }
+
+    if (value === "IN_PROGRESS") return "warning";
+    if (value === "FIXED" || value === "VERIFIED") return "success";
+    if (value === "REOPENED") return "error";
+    if (value === "OPEN" || value === "TRIAGE_PENDING" || value === "TRIAGED") return "info";
+    return "default";
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <CircularProgress size={20} />
+        <Typography color="text.secondary">Loading bugs...</Typography>
+      </Box>
+    );
+  }
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
+    <Box>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem" }}>
           {isDeveloper ? "My Assigned Bugs" : "Bugs"}
-        </h2>
-        <div className="flex gap-2">
-          {(user?.role === "TESTER" || user?.role === "ADMIN") && (
-            <button onClick={() => navigate("/bugs/create")}>+ Report Bug</button>
-          )}
-        </div>
-      </div>
+        </Typography>
+        {(user?.role === "TESTER" || user?.role === "ADMIN") ? (
+          <Button variant="contained" onClick={() => navigate("/bugs/create")}>
+            + Report Bug
+          </Button>
+        ) : null}
+      </Stack>
 
-      {error && (
-        <div style={{ padding: "0.75rem 1rem", marginBottom: "1rem", background: "#fee2e2", border: "1px solid #fecaca", color: "#991b1b", borderRadius: "var(--radius-md)" }}>
-          {error}
-        </div>
-      )}
+      {error ? <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert> : null}
 
-      {loading ? (
-        <p>Loading bugs...</p>
-      ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Bug ID</th>
-                <th>Title</th>
-                <th>Severity</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Assigned To</th>
-                <th>Reported By</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bugs.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center" style={{ padding: "2rem" }}>No bugs found.</td>
-                </tr>
-              ) : (
-                bugs.map((bug) => (
-                  <tr key={bug.id} className="bug-row" onClick={() => navigate(`/bugs/${bug.id}`)}>
-                    <td>
-                      <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "var(--primary-color)" }}>
-                        {bug.bugId}
-                      </span>
-                    </td>
-                    <td className="font-medium">{bug.title}</td>
-                    <td><span className={getBadge("severity", bug.severity)}>{bug.severity}</span></td>
-                    <td><span className={getBadge("priority", bug.priority)}>{bug.priority}</span></td>
-                    <td><span className={getBadge("status", bug.status)}>{formatStatus(bug.status)}</span></td>
-                    <td>{bug.assignedTo?.email || "-"}</td>
-                    <td>{bug.createdBy?.email || `User ${bug.createdById}`}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+      <Paper sx={{ borderRadius: 3, overflowX: "auto" }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Bug ID</TableCell>
+              <TableCell>Title</TableCell>
+              <TableCell>Severity</TableCell>
+              <TableCell>Priority</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Assigned To</TableCell>
+              <TableCell>Reported By</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {bugs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <Typography color="text.secondary" sx={{ py: 2 }}>
+                    No bugs found.
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              bugs.map((bug) => (
+                <TableRow
+                  key={bug.id}
+                  hover
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => navigate(`/bugs/${bug.id}`)}
+                >
+                  <TableCell>
+                    <Typography variant="caption" sx={{ fontFamily: "monospace", color: "primary.main" }}>
+                      {bug.bugId}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{bug.title}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={bug.severity}
+                      color={getChipColor("severity", bug.severity)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={bug.priority}
+                      color={getChipColor("priority", bug.priority)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={formatStatus(bug.status)}
+                      color={getChipColor("status", bug.status)}
+                    />
+                  </TableCell>
+                  <TableCell>{bug.assignedTo?.email || "-"}</TableCell>
+                  <TableCell>{bug.createdBy?.email || `User ${bug.createdById}`}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
   );
 };
 

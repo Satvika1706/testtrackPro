@@ -59,65 +59,93 @@ const CreateTestCase = () => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Create Test Case</h2>
+    <div className="page-shell">
+      <div className="card">
+        <h2 className="text-2xl font-bold mb-4">Create Test Case</h2>
 
-      <input placeholder="Title" onChange={(e) => setTitle(e.target.value)} />
-      <br /><br />
+        <div className="form-group">
+          <label>Title</label>
+          <input placeholder="Title" onChange={(e) => setTitle(e.target.value)} />
+        </div>
 
-      <textarea
-        placeholder="Description"
-        onChange={(e) => setDescription(e.target.value)}
-      />
-      <br /><br />
-
-      <input placeholder="Module" onChange={(e) => setModule(e.target.value)} />
-      <br /><br />
-
-      <select onChange={(e) => setPriority(e.target.value)}>
-        <option value="HIGH">HIGH</option>
-        <option value="MEDIUM">MEDIUM</option>
-        <option value="LOW">LOW</option>
-      </select>
-
-      <select onChange={(e) => setSeverity(e.target.value)}>
-        <option value="CRITICAL">CRITICAL</option>
-        <option value="MAJOR">MAJOR</option>
-        <option value="MINOR">MINOR</option>
-      </select>
-
-      <select onChange={(e) => setType(e.target.value)}>
-        <option value="FUNCTIONAL">FUNCTIONAL</option>
-        <option value="REGRESSION">REGRESSION</option>
-      </select>
-
-      <select onChange={(e) => setStatus(e.target.value)}>
-        <option value="DRAFT">DRAFT</option>
-        <option value="READY_FOR_REVIEW">READY_FOR_REVIEW</option>
-        <option value="APPROVED">APPROVED</option>
-      </select>
-
-      <h3>Steps</h3>
-      {steps.map((_, index) => (
-        <div key={index}>
-          <input
-            placeholder="Action"
-            onChange={(e) => updateStep(index, "action", e.target.value)}
-          />
-          <input
-            placeholder="Expected Result"
-            onChange={(e) =>
-              updateStep(index, "expectedResult", e.target.value)
-            }
+        <div className="form-group">
+          <label>Description</label>
+          <textarea
+            placeholder="Description"
+            onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-      ))}
 
-      <br />
-      <button onClick={addStep}>Add Step</button>
-      <br /><br />
+        <div className="form-group">
+          <label>Module</label>
+          <input placeholder="Module" onChange={(e) => setModule(e.target.value)} />
+        </div>
 
-      <button onClick={handleSubmit}>Create Test Case</button>
+        <div className="filters-grid mb-6">
+          <div>
+            <label>Priority</label>
+            <select onChange={(e) => setPriority(e.target.value)}>
+              <option value="HIGH">HIGH</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="LOW">LOW</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Severity</label>
+            <select onChange={(e) => setSeverity(e.target.value)}>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="MAJOR">MAJOR</option>
+              <option value="MINOR">MINOR</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Type</label>
+            <select onChange={(e) => setType(e.target.value)}>
+              <option value="FUNCTIONAL">FUNCTIONAL</option>
+              <option value="REGRESSION">REGRESSION</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Status</label>
+            <select onChange={(e) => setStatus(e.target.value)}>
+              <option value="DRAFT">DRAFT</option>
+              <option value="READY_FOR_REVIEW">READY_FOR_REVIEW</option>
+              <option value="APPROVED">APPROVED</option>
+            </select>
+          </div>
+        </div>
+
+        <h3 className="text-lg font-semibold mb-4">Steps</h3>
+        <div className="list-card mb-6">
+          {steps.map((_, index) => (
+            <div key={index} className="card p-4">
+              <p className="text-sm font-semibold mb-3">Step {index + 1}</p>
+              <div className="form-group">
+                <label>Action</label>
+                <input
+                  placeholder="Action"
+                  onChange={(e) => updateStep(index, "action", e.target.value)}
+                />
+              </div>
+              <div className="form-group mb-0">
+                <label>Expected Result</label>
+                <input
+                  placeholder="Expected Result"
+                  onChange={(e) => updateStep(index, "expectedResult", e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="inline-actions">
+          <button type="button" className="secondary" onClick={addStep}>Add Step</button>
+          <button type="button" onClick={handleSubmit}>Create Test Case</button>
+        </div>
+      </div>
     </div>
   );
 };

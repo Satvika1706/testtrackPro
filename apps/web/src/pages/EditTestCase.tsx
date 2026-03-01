@@ -22,8 +22,6 @@ const EditTestCase = () => {
 
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
- 
-
   useEffect(() => {
     if (!id) return;
 
@@ -43,8 +41,6 @@ const EditTestCase = () => {
 
     fetchTestCase();
   }, [id]);
-
- 
 
   const addStep = () => {
     setSteps((prev) => [
@@ -67,8 +63,6 @@ const EditTestCase = () => {
     setSteps(updated);
   };
 
-  
-
   const handleSave = async () => {
     if (!changeSummary.trim()) {
       alert("Change summary is required");
@@ -90,78 +84,78 @@ const EditTestCase = () => {
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <p className="text-gray-500">Loading...</p>;
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Edit Test Case</h2>
+    <div className="page-shell">
+      <div className="card">
+        <h2 className="text-2xl font-bold mb-4">Edit Test Case</h2>
 
-      {/* BASIC INFO */}
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="Title"
-      />
-      <br /><br />
-
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description"
-      />
-      <br /><br />
-
-      {/* STEPS */}
-      <h3>Steps</h3>
-
-      {steps.map((step, index) => (
-        <div key={index} style={{ marginBottom: 10 }}>
-          <strong>Step {index + 1}</strong>
-          <br />
-
+        <div className="form-group">
+          <label>Title</label>
           <input
-            placeholder="Action"
-            value={step.action}
-            onChange={(e) =>
-              updateStep(index, "action", e.target.value)
-            }
-          />
-          <br />
-
-          <input
-            placeholder="Expected Result"
-            value={step.expectedResult}
-            onChange={(e) =>
-              updateStep(index, "expectedResult", e.target.value)
-            }
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title"
           />
         </div>
-      ))}
 
-      <button onClick={addStep}>Add Step</button>
+        <div className="form-group">
+          <label>Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description"
+          />
+        </div>
 
-      <br /><br />
+        <h3 className="text-lg font-semibold mb-4">Steps</h3>
+        <div className="list-card mb-6">
+          {steps.map((step, index) => (
+            <div key={index} className="card p-4">
+              <p className="text-sm font-semibold mb-3">Step {step.stepNumber || index + 1}</p>
 
-      {/* CHANGE SUMMARY */}
-      <h3>Change Summary</h3>
-      <textarea
-        placeholder="Describe what changed (required)"
-        value={changeSummary}
-        onChange={(e) => setChangeSummary(e.target.value)}
-      />
+              <div className="form-group">
+                <label>Action</label>
+                <input
+                  placeholder="Action"
+                  value={step.action}
+                  onChange={(e) => updateStep(index, "action", e.target.value)}
+                />
+              </div>
 
-      <br /><br />
+              <div className="form-group mb-0">
+                <label>Expected Result</label>
+                <input
+                  placeholder="Expected Result"
+                  value={step.expectedResult}
+                  onChange={(e) => updateStep(index, "expectedResult", e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
 
-      {/* ACTIONS */}
-      <button onClick={handleSave}>Save</button>{" "}
-      <button onClick={() => navigate("/test-cases")}>
-        Cancel
-      </button>{" "}
-      <button onClick={() => setIsHistoryOpen(true)}>
-        View Version History
-      </button>
+        <button type="button" className="secondary mb-6" onClick={addStep}>Add Step</button>
 
-      {/* VERSION HISTORY SIDEBAR */}
+        <div className="form-group">
+          <label>Change Summary</label>
+          <textarea
+            placeholder="Describe what changed (required)"
+            value={changeSummary}
+            onChange={(e) => setChangeSummary(e.target.value)}
+          />
+        </div>
+
+        <div className="inline-actions">
+          <button type="button" onClick={handleSave}>Save</button>
+          <button type="button" className="secondary" onClick={() => navigate("/test-cases")}>Cancel</button>
+          <button type="button" className="secondary" onClick={() => setIsHistoryOpen(true)}>
+            View Version History
+          </button>
+        </div>
+      </div>
+
       <VersionHistorySidebar
         testCaseId={id!}
         isOpen={isHistoryOpen}

@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Divider,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import api from "../api/axios";
 
 interface TestCase {
@@ -28,8 +40,8 @@ const TestSuiteDetails = () => {
   const [selectedTestCaseId, setSelectedTestCaseId] = useState("");
 
   useEffect(() => {
-    fetchSuite();
-    fetchAllTestCases();
+    void fetchSuite();
+    void fetchAllTestCases();
   }, []);
 
   const fetchSuite = async () => {
@@ -64,7 +76,7 @@ const TestSuiteDetails = () => {
       });
       alert("Test case added");
       setSelectedTestCaseId("");
-      fetchSuite();
+      void fetchSuite();
     } catch (error) {
       console.error("Failed to add test case", error);
       alert("Failed to add test case");
@@ -74,7 +86,7 @@ const TestSuiteDetails = () => {
   const handleRemoveTestCase = async (testCaseId: string) => {
     try {
       await api.delete(`/api/test-suites/${id}/test-cases/${testCaseId}`);
-      fetchSuite();
+      void fetchSuite();
     } catch (error) {
       console.error("Failed to remove test case", error);
       alert("Failed to remove test case");
@@ -109,7 +121,7 @@ const TestSuiteDetails = () => {
       await api.put(`/api/test-suites/${id}/reorder`, {
         testCaseIds: updatedOrder,
       });
-      fetchSuite();
+      void fetchSuite();
     } catch (error) {
       console.error("Reorder failed", error);
     }
@@ -124,112 +136,146 @@ const TestSuiteDetails = () => {
     const newIndex = direction === "up" ? index - 1 : index + 1;
     [relations[index], relations[newIndex]] = [relations[newIndex], relations[index]];
 
-    // Optimistic update of UI
-    const updatedIds = relations.map(r => r.testCase.id);
+    const updatedIds = relations.map((r) => r.testCase.id);
     setSuite({ ...suite, testCases: relations });
 
-    handleReorder(updatedIds);
+    void handleReorder(updatedIds);
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
-  if (!suite) return <div className="p-8 text-center text-gray-500">Suite not found</div>;
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <CircularProgress size={20} />
+        <Typography color="text.secondary">Loading suite...</Typography>
+      </Box>
+    );
+  }
+
+  if (!suite) {
+    return <Typography color="text.secondary">Suite not found</Typography>;
+  }
 
   const sortedTestCases = [...suite.testCases].sort((a, b) => a.order - b.order);
+  const dangerSx = {
+    backgroundColor: "#f97362",
+    color: "#fff",
+    "&:hover": { backgroundColor: "#f97362" },
+  };
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">{suite.name}</h2>
-          <p className="text-gray-600 mb-1">{suite.description}</p>
-          {suite.module && (
-            <span className="badge neutral">Module: {suite.module}</span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleCloneSuite} className="secondary">
+    <Box>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Box>
+          <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem", mb: 0.5 }}>
+            {suite.name}
+          </Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>
+            {suite.description}
+          </Typography>
+          {suite.module ? <Chip size="small" variant="outlined" label={`Module: ${suite.module}`} /> : null}
+        </Box>
+        <Stack direction="row" spacing={1.5}>
+          <Button variant="outlined" onClick={handleCloneSuite}>
             Clone Suite
-          </button>
-          <button onClick={handleArchiveSuite} className="danger">
+          </Button>
+          <Button variant="contained" onClick={handleArchiveSuite} sx={dangerSx}>
             Archive Suite
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Stack>
+      </Stack>
 
-      <div className="card mb-8">
-        <h3 className="text-lg font-bold mb-4">Manage Test Cases</h3>
+      <Paper sx={{ p: 4, borderRadius: 3 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 2.5 }}>
+          Manage Test Cases
+        </Typography>
 
-        <div className="flex gap-4 items-end mb-6">
-          <div className="flex-1">
-            <label className="block text-sm font-medium mb-1">Add Test Case to Suite</label>
-            <select
-              value={selectedTestCaseId}
-              onChange={(e) => setSelectedTestCaseId(e.target.value)}
-            >
-              <option value="">Select Test Case</option>
-              {allTestCases.map((tc) => (
-                <option key={tc.id} value={tc.id}>
-                  {tc.title}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button onClick={handleAddTestCase}>Add +</button>
-        </div>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "flex-end" }} sx={{ mb: 3 }}>
+          <TextField
+            select
+            fullWidth
+            label="Add Test Case to Suite"
+            value={selectedTestCaseId}
+            onChange={(e) => setSelectedTestCaseId(e.target.value)}
+          >
+            <MenuItem value="">Select Test Case</MenuItem>
+            {allTestCases.map((tc) => (
+              <MenuItem key={tc.id} value={tc.id}>
+                {tc.title}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button variant="contained" onClick={handleAddTestCase}>
+            Add +
+          </Button>
+        </Stack>
 
-        <div>
-          <h4 className="text-md font-semibold mb-4 text-gray-700">Test Cases in this Suite ({suite.testCases.length})</h4>
+        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+          Test Cases in this Suite ({suite.testCases.length})
+        </Typography>
 
-          {suite.testCases.length === 0 ? (
-            <div className="p-4 bg-gray-50 rounded border border-gray-200 text-center text-gray-500">
-              No test cases in this suite yet.
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {sortedTestCases.map((relation, index) => (
-                <li
-                  key={relation.id}
-                  className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-                >
-                  <span className="font-medium text-gray-800 flex items-center gap-3">
-                    <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-sm font-mono">
-                      {index + 1}
-                    </span>
-                    {relation.testCase.title}
-                  </span>
+        {suite.testCases.length === 0 ? (
+          <Paper variant="outlined" sx={{ p: 3, borderRadius: 2.5 }}>
+            <Typography color="text.secondary">No test cases in this suite yet.</Typography>
+          </Paper>
+        ) : (
+          <Stack spacing={1.5}>
+            {sortedTestCases.map((relation, index) => (
+              <Paper
+                key={relation.id}
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2.5,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 2,
+                }}
+              >
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Chip size="small" label={index + 1} />
+                  <Typography fontWeight={600}>{relation.testCase.title}</Typography>
+                </Stack>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => moveTestCase(index, "up")}
-                      disabled={index === 0}
-                      className="secondary p-2 h-8 w-8 !padding-0 flex items-center justify-center"
-                      title="Move Up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      onClick={() => moveTestCase(index, "down")}
-                      disabled={index === sortedTestCases.length - 1}
-                      className="secondary p-2 h-8 w-8 !padding-0 flex items-center justify-center"
-                      title="Move Down"
-                    >
-                      ↓
-                    </button>
-                    <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                    <button
-                      onClick={() => handleRemoveTestCase(relation.testCase.id)}
-                      className="danger text-sm px-3 py-1"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => moveTestCase(index, "up")}
+                    disabled={index === 0}
+                  >
+                    Up
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => moveTestCase(index, "down")}
+                    disabled={index === sortedTestCases.length - 1}
+                  >
+                    Down
+                  </Button>
+                  <Divider orientation="vertical" flexItem />
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => handleRemoveTestCase(relation.testCase.id)}
+                    sx={dangerSx}
+                  >
+                    Remove
+                  </Button>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        )}
+      </Paper>
+    </Box>
   );
 };
 

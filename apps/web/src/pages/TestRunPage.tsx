@@ -1,6 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
+import {
   getTestRun,
   getRunProgress,
   getTestRunItems,
@@ -29,9 +41,9 @@ const TestRunPage = () => {
   const [items, setItems] = useState<RunItem[]>([]);
 
   useEffect(() => {
-    fetchRun();
-    fetchProgress();
-    fetchItems();
+    void fetchRun();
+    void fetchProgress();
+    void fetchItems();
   }, []);
 
   const fetchRun = async () => {
@@ -50,65 +62,89 @@ const TestRunPage = () => {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>{runName}</h2>
+    <Box>
+      <Paper sx={{ p: 4, borderRadius: 3, mb: 3 }}>
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem", mb: 2 }}>
+          {runName}
+        </Typography>
 
-      {progress && (
-        <div style={{ marginBottom: 20 }}>
-          <p>Status Overview:</p>
-          <p>Total: {progress.total}</p>
-          <p>Passed: {progress.passed}</p>
-          <p>Failed: {progress.failed}</p>
-          <p>In Progress: {progress.inProgress}</p>
-          <p>Completion: {progress.completionRate.toFixed(1)}%</p>
-          <p>Pass Rate: {progress.passRate.toFixed(1)}%</p>
-        </div>
-      )}
+        {progress ? (
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            }}
+          >
+            {[
+              { label: "Total", value: progress.total },
+              { label: "Passed", value: progress.passed },
+              { label: "Failed", value: progress.failed },
+              { label: "In Progress", value: progress.inProgress },
+              { label: "Completion", value: `${progress.completionRate.toFixed(1)}%` },
+              { label: "Pass Rate", value: `${progress.passRate.toFixed(1)}%` },
+            ].map((item) => (
+              <Paper key={item.label} variant="outlined" sx={{ p: 2.25, borderRadius: 2.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {item.label}
+                </Typography>
+                <Typography variant="h6" fontWeight={800}>
+                  {item.value}
+                </Typography>
+              </Paper>
+            ))}
+          </Box>
+        ) : null}
+      </Paper>
 
-      <h3>Test Cases</h3>
-
-      <table border={1} cellPadding={10}>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Assigned</th>
-            <th>Status</th>
-            <th>Time</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td>{item.testCase.title}</td>
-              <td>{item.assignedTo?.email || "-"}</td>
-              <td>{item.status}</td>
-              <td>
-                {item.totalTimeSeconds
-                  ? `${Math.floor(item.totalTimeSeconds / 60)}m ${
-                      item.totalTimeSeconds % 60
-                    }s`
-                  : "-"}
-              </td>
-              <td>
-                <button
-                  onClick={() => {
-                    if (currentUser?.role !== "TESTER") {
-                      alert("Access denied: only testers can run test execution.");
-                      return;
-                    }
-                    navigate(`/execution/${item.id}`);
-                  }}
-                >
-                  Execute
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+      <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+          Test Cases
+        </Typography>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Title</TableCell>
+              <TableCell>Assigned</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Time</TableCell>
+              <TableCell>Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.id} hover>
+                <TableCell>{item.testCase.title}</TableCell>
+                <TableCell>{item.assignedTo?.email || "-"}</TableCell>
+                <TableCell>
+                  <Chip size="small" variant="outlined" label={item.status} />
+                </TableCell>
+                <TableCell>
+                  {item.totalTimeSeconds
+                    ? `${Math.floor(item.totalTimeSeconds / 60)}m ${item.totalTimeSeconds % 60}s`
+                    : "-"}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    type="button"
+                    variant="contained"
+                    onClick={() => {
+                      if (currentUser?.role !== "TESTER") {
+                        alert("Access denied: only testers can run test execution.");
+                        return;
+                      }
+                      navigate(`/execution/${item.id}`);
+                    }}
+                  >
+                    Execute
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
   );
 };
 

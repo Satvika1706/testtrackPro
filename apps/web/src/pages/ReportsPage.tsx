@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 import { getCurrentUser } from "../utils/auth";
 
 const REPORT_ACCESS_ROLES = ["ADMIN", "TESTER", "DEVELOPER", "TRIAGE"] as const;
@@ -9,29 +10,29 @@ const reportCards = [
     description:
       "Track execution progress, pass/fail trends, and module/tester-level delivery quality.",
     route: "/reports/test-execution",
-    enabled: true
+    enabled: true,
   },
   {
     title: "Bug Report",
     description:
       "Analyze bug severity, closure trends, and ownership across the release cycle.",
     route: "/reports/bugs",
-    enabled: true
+    enabled: true,
   },
   {
     title: "Developer Performance Report",
     description:
       "Measure fix throughput, turnaround time, and verification outcomes by developer.",
     route: "/reports/developer-performance",
-    enabled: true
+    enabled: true,
   },
   {
     title: "Tester Performance Report",
     description:
       "Review tester execution coverage, defect discovery rates, and report quality.",
     route: "/reports/tester-performance",
-    enabled: true
-  }
+    enabled: true,
+  },
 ];
 
 const ReportsPage = () => {
@@ -40,12 +41,14 @@ const ReportsPage = () => {
 
   if (!hasAccess) {
     return (
-      <div className="card">
-        <h2 className="text-2xl">Reports & Analytics</h2>
-        <p className="text-gray-600">
+      <Paper sx={{ p: 4, borderRadius: 3 }}>
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem", mb: 1 }}>
+          Reports & Analytics
+        </Typography>
+        <Typography color="text.secondary">
           You do not have permission to view reports.
-        </p>
-      </div>
+        </Typography>
+      </Paper>
     );
   }
 
@@ -58,31 +61,46 @@ const ReportsPage = () => {
   });
 
   return (
-    <div className="reports-page">
-      <div className="page-header">
-        <h2 className="text-2xl font-bold">Reports & Analytics</h2>
-        <p className="text-gray-600">
+    <Box>
+      <Stack spacing={0.75} sx={{ mb: 3 }}>
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem" }}>
+          Reports & Analytics
+        </Typography>
+        <Typography color="text.secondary">
           Choose a report to view detailed quality and execution insights.
-        </p>
-      </div>
+        </Typography>
+      </Stack>
 
-      <div className="report-grid">
+      <Box
+        sx={{
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        }}
+      >
         {visibleCards.map((card) => (
-          <article key={card.route} className="report-card">
-            <div>
-              <h3 className="report-card-title">{card.title}</h3>
-              <p className="report-card-description">{card.description}</p>
-            </div>
+          <Paper key={card.route} sx={{ p: 3, borderRadius: 3 }}>
+            <Stack spacing={2} justifyContent="space-between" sx={{ minHeight: 180 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
+                  {card.title}
+                </Typography>
+                <Typography color="text.secondary">{card.description}</Typography>
+              </Box>
 
-            <Link to={card.route} className="report-link-wrapper">
-              <button type="button" className={card.enabled ? "" : "secondary"}>
+              <Button
+                component={Link}
+                to={card.route}
+                type="button"
+                variant={card.enabled ? "contained" : "outlined"}
+              >
                 View Report
-              </button>
-            </Link>
-          </article>
+              </Button>
+            </Stack>
+          </Paper>
         ))}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Alert, Button, Stack, Typography } from "@mui/material";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import api from "../api/axios";
+import AuthLayout from "../layouts/AuthLayout";
 
 const VerifyEmailPage = () => {
   const [searchParams] = useSearchParams();
@@ -41,14 +43,32 @@ const VerifyEmailPage = () => {
   }, [token, navigate]);
 
   return (
-    <div style={{ textAlign: "center", marginTop: "100px" }}>
-      <h2>{message}</h2>
-      {status === "error" && (
-        <button style={{ marginTop: "16px" }} onClick={() => navigate("/register")}>
-          Go to Register
-        </button>
-      )}
-    </div>
+    <AuthLayout>
+      <Stack spacing={4}>
+        <Typography variant="h4" fontWeight={800} textAlign="center">
+          Verify Email
+        </Typography>
+        <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 4 }}>
+          We are verifying your email address.
+        </Typography>
+
+        <Alert severity={status === "error" ? "error" : status === "success" ? "success" : "info"}>
+          {message}
+        </Alert>
+
+        {status === "error" ? (
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            sx={{ borderRadius: "40px", textTransform: "none" }}
+            onClick={() => navigate("/register")}
+          >
+            Go to Register
+          </Button>
+        ) : null}
+      </Stack>
+    </AuthLayout>
   );
 };
 

@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 import api from "../api/axios";
-
-
 
 interface TestSuite {
   id: string;
@@ -21,7 +28,7 @@ const TestSuites = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchSuites();
+    void fetchSuites();
   }, []);
 
   const fetchSuites = async () => {
@@ -35,117 +42,130 @@ const TestSuites = () => {
     }
   };
 
-  if (loading) return <p>Loading...</p>;
   const handleCreateSuite = async () => {
-  if (!name) {
-    alert("Suite name is required");
-    return;
+    if (!name) {
+      alert("Suite name is required");
+      return;
+    }
+
+    try {
+      await api.post("/api/test-suites", {
+        name,
+        description,
+        module,
+      });
+
+      alert("Suite created successfully");
+      setName("");
+      setDescription("");
+      setModule("");
+      setShowForm(false);
+      void fetchSuites();
+    } catch (error) {
+      console.error("Create suite failed", error);
+      alert("Failed to create suite");
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <CircularProgress size={20} />
+        <Typography color="text.secondary">Loading suites...</Typography>
+      </Box>
+    );
   }
 
-  try {
-    await api.post("/api/test-suites", {
-      name,
-      description,
-      module,
-    });
-
-    alert("Suite created successfully");
-
-    // Reset form
-    setName("");
-    setDescription("");
-    setModule("");
-    setShowForm(false);
-
-    // Refresh list
-    fetchSuites();
-  } catch (error) {
-    console.error("Create suite failed", error);
-    alert("Failed to create suite");
-  }
-};
-return (
-  <div style={{ padding: 20 }}>
-    <h2>Test Suites</h2>
-
-    {/* Create Button */}
-    <button
-      onClick={() => setShowForm(!showForm)}
-      style={{ marginBottom: 20 }}
-    >
-      {showForm ? "Cancel" : "Create Suite"}
-    </button>
-
-    {/* Create Form */}
-    {showForm && (
-      <div
-        style={{
-          border: "1px solid #ccc",
-          padding: 15,
-          marginBottom: 20,
-          width: 300,
-        }}
+  return (
+    <Box>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+        sx={{ mb: 3 }}
       >
-        <h3>Create New Suite</h3>
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem" }}>
+          Test Suites
+        </Typography>
+        <Button type="button" variant="contained" onClick={() => setShowForm(!showForm)}>
+          {showForm ? "Cancel" : "Create Suite"}
+        </Button>
+      </Stack>
 
-        <input
-          placeholder="Suite Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <br /><br />
+      {showForm ? (
+        <Paper sx={{ p: 4, borderRadius: 3, mb: 3, maxWidth: 560 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 2.5 }}>
+            Create New Suite
+          </Typography>
 
-        <input
-          placeholder="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <br /><br />
+          <Stack spacing={2.5}>
+            <TextField
+              label="Suite Name"
+              placeholder="Suite Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Description"
+              placeholder="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Module"
+              placeholder="Module"
+              value={module}
+              onChange={(e) => setModule(e.target.value)}
+              fullWidth
+            />
 
-        <input
-          placeholder="Module"
-          value={module}
-          onChange={(e) => setModule(e.target.value)}
-        />
-        <br /><br />
+            <Button type="button" variant="contained" onClick={handleCreateSuite}>
+              Save Suite
+            </Button>
+          </Stack>
+        </Paper>
+      ) : null}
 
-        <button onClick={handleCreateSuite}>
-          Save Suite
-        </button>
-      </div>
-    )}
-
-    {/* Loading */}
-    {loading && <p>Loading...</p>}
-
-    {/* Suite List */}
-    {!loading && suites.length === 0 && (
-      <p>No test suites available</p>
-    )}
-
-    {!loading && suites.length > 0 && (
-      <ul>
-        {suites.map((suite) => (
-          <li key={suite.id} style={{ marginBottom: 15 }}>
-            <strong>{suite.name}</strong>
-            <br />
-            <button
-                 onClick={() => navigate(`/test-suites/${suite.id}`)}
-                    >
-                         View
-            </button>
-
-            <br />
-            {suite.description}
-            <br />
-            Module: {suite.module}
-            <hr />
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-);
+      {suites.length === 0 ? (
+        <Paper sx={{ p: 4, borderRadius: 3 }}>
+          <Typography color="text.secondary">No test suites available.</Typography>
+        </Paper>
+      ) : (
+        <Stack spacing={2}>
+          {suites.map((suite) => (
+            <Paper
+              key={suite.id}
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2.5,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography fontWeight={700}>{suite.name}</Typography>
+                <Typography color="text.secondary">
+                  {suite.description || "No description"}
+                </Typography>
+                <Typography color="text.secondary" variant="body2">
+                  Module: {suite.module || "-"}
+                </Typography>
+              </Box>
+              <Button type="button" variant="outlined" onClick={() => navigate(`/test-suites/${suite.id}`)}>
+                View
+              </Button>
+            </Paper>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
 };
 
 export default TestSuites;

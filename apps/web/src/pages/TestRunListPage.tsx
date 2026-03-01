@@ -1,7 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllTestRuns } from "../api/testrun.api";
+import {
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  FormControlLabel,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { getAllTestRuns, createTestRun } from "../api/testrun.api";
 import { getCurrentUser } from "../utils/auth";
+import { getTestCases } from "../api/testcases.api";
 
 interface TestRun {
   id: string;
@@ -21,9 +39,6 @@ interface TestCase {
   title: string;
 }
 
-import { getTestCases } from "../api/testcases.api";
-import { createTestRun } from "../api/testrun.api";
-
 const TestRunListPage = () => {
   const currentUser = getCurrentUser();
   const canCreateRun = currentUser?.role === "TESTER";
@@ -32,10 +47,11 @@ const TestRunListPage = () => {
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [newRunName, setNewRunName] = useState("");
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchRuns();
+    void fetchRuns();
   }, []);
 
   const fetchRuns = async () => {
@@ -44,6 +60,8 @@ const TestRunListPage = () => {
       setRuns(res.data.data);
     } catch (err) {
       console.error("Failed to fetch test runs", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,7 +73,6 @@ const TestRunListPage = () => {
     setIsCreating(true);
     try {
       const res = await getTestCases();
-      // Adjust depending on actual API response structure
       setTestCases(res.data || res);
     } catch (err) {
       console.error("Failed to fetch test cases", err);
@@ -81,7 +98,7 @@ const TestRunListPage = () => {
       setIsCreating(false);
       setNewRunName("");
       setSelectedCaseIds([]);
-      fetchRuns(); // Refresh list
+      void fetchRuns();
     } catch (err) {
       console.error("Failed to create test run", err);
       alert("Failed to create test run");
@@ -89,115 +106,144 @@ const TestRunListPage = () => {
   };
 
   const toggleTestCase = (id: string) => {
-    setSelectedCaseIds(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    setSelectedCaseIds((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
     );
   };
 
-  const getStatusBadgeClass = (status: string) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return 'badge success';
-      case 'IN_PROGRESS': return 'badge info';
-      default: return 'badge neutral';
+      case "COMPLETED":
+        return "success";
+      case "IN_PROGRESS":
+        return "info";
+      default:
+        return "default";
     }
   };
 
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <CircularProgress size={20} />
+        <Typography color="text.secondary">Loading test runs...</Typography>
+      </Box>
+    );
+  }
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Test Runs</h2>
-        {canCreateRun && <button onClick={handleOpenCreate}>+ Create Test Run</button>}
-      </div>
+    <Box>
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "flex-start", md: "center" }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem" }}>
+          Test Runs
+        </Typography>
+        {canCreateRun ? (
+          <Button variant="contained" onClick={handleOpenCreate}>
+            + Create Test Run
+          </Button>
+        ) : null}
+      </Stack>
 
-      {isCreating && (
-        <div className="mb-6 p-6 card border rounded-lg bg-white shadow-sm">
-          <h3 className="text-xl font-semibold mb-4">New Test Run</h3>
-          <form onSubmit={handleCreateRun}>
-            <div className="form-group">
-              <label>Run Name</label>
-              <input
-                type="text"
-                value={newRunName}
-                onChange={(e) => setNewRunName(e.target.value)}
-                placeholder="e.g. Sprint 24 Regression"
-                className="w-full"
-                required
-              />
-            </div>
+      {isCreating ? (
+        <Paper sx={{ p: 4, borderRadius: 3, mb: 3 }}>
+          <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>
+            New Test Run
+          </Typography>
+          <Stack component="form" spacing={3} onSubmit={handleCreateRun}>
+            <TextField
+              label="Run Name"
+              type="text"
+              value={newRunName}
+              onChange={(e) => setNewRunName(e.target.value)}
+              placeholder="e.g. Sprint 24 Regression"
+              fullWidth
+              required
+            />
 
-            <div className="form-group">
-              <label>Select Test Cases ({selectedCaseIds.length})</label>
-              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '0.375rem', padding: '1rem' }}>
-                {testCases.map(tc => (
-                  <div key={tc.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="checkbox"
-                      id={`tc-${tc.id}`}
-                      checked={selectedCaseIds.includes(tc.id)}
-                      onChange={() => toggleTestCase(tc.id)}
-                      style={{ width: 'auto' }}
-                    />
-                    <label htmlFor={`tc-${tc.id}`} style={{ marginBottom: 0, cursor: 'pointer' }}>
-                      {tc.title}
-                    </label>
-                  </div>
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, maxHeight: 300, overflowY: "auto" }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+                Select Test Cases ({selectedCaseIds.length})
+              </Typography>
+              <Stack>
+                {testCases.map((tc) => (
+                  <FormControlLabel
+                    key={tc.id}
+                    control={
+                      <Checkbox
+                        checked={selectedCaseIds.includes(tc.id)}
+                        onChange={() => toggleTestCase(tc.id)}
+                      />
+                    }
+                    label={tc.title}
+                  />
                 ))}
-              </div>
-            </div>
+              </Stack>
+            </Paper>
 
-            <div className="flex gap-2 justify-end mt-4">
-              <button type="button" className="secondary" onClick={() => setIsCreating(false)}>
+            <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+              <Button type="button" variant="outlined" onClick={() => setIsCreating(false)}>
                 Cancel
-              </button>
-              <button type="submit">
+              </Button>
+              <Button type="submit" variant="contained">
                 Create Run
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+      ) : null}
 
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Created By</th>
-              <th>Total Cases</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
+      <Paper sx={{ borderRadius: 3, overflowX: "auto" }}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Created By</TableCell>
+              <TableCell>Total Cases</TableCell>
+              <TableCell>Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {runs.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center p-8 text-gray-500">No test runs found.</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <Typography color="text.secondary" sx={{ py: 2 }}>
+                    No test runs found.
+                  </Typography>
+                </TableCell>
+              </TableRow>
             ) : (
               runs.map((run) => (
-                <tr key={run.id}>
-                  <td className="font-medium">{run.name}</td>
-                  <td>
-                    <span className={getStatusBadgeClass(run.status)}>{run.status}</span>
-                  </td>
-                  <td>{run.createdBy.email}</td>
-                  <td>{run._count.testRunItems}</td>
-                  <td>
-                    <button
-                      onClick={() => navigate(`/test-runs/${run.id}`)}
-                      className="secondary px-3 py-1 text-xs"
-                    >
+                <TableRow key={run.id} hover>
+                  <TableCell>{run.name}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={run.status}
+                      color={getStatusColor(run.status)}
+                    />
+                  </TableCell>
+                  <TableCell>{run.createdBy.email}</TableCell>
+                  <TableCell>{run._count.testRunItems}</TableCell>
+                  <TableCell>
+                    <Button size="small" variant="outlined" onClick={() => navigate(`/test-runs/${run.id}`)}>
                       View
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
   );
 };
 

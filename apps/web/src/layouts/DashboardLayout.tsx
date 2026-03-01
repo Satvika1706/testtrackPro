@@ -10,14 +10,131 @@ import {
   getNotifications,
   type NotificationItem,
 } from "../api/notification.api";
+import {
+  Alert,
+  Badge,
+  Box,
+  Button,
+  CssBaseline,
+  Divider,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
+  Snackbar,
+  ThemeProvider,
+  Typography,
+  createTheme,
+} from "@mui/material";
+
+const drawerWidth = 260;
 
 export interface NotificationContext {
   notifications: NotificationItem[];
-  setNotifications: React.Dispatch<
-    React.SetStateAction<NotificationItem[]>
-  >;
+  setNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
   refreshNotifications: () => Promise<void>;
 }
+
+const dashboardTheme = createTheme({
+  palette: {
+    mode: "light",
+    primary: {
+      main: "#2563eb",
+    },
+    error: {
+      main: "#f97362",
+    },
+    background: {
+      default: "#f7f9fc",
+    },
+  },
+  typography: {
+    fontSize: 16,
+    fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+    h6: {
+      fontSize: "1.45rem",
+      fontWeight: 800,
+    },
+    body1: {
+      fontSize: "1rem",
+    },
+    body2: {
+      fontSize: "0.95rem",
+    },
+    button: {
+      textTransform: "none",
+      fontWeight: 700,
+      fontSize: "0.98rem",
+    },
+  },
+  components: {
+    MuiTableCell: {
+      styleOverrides: {
+        head: {
+          fontSize: "0.86rem",
+          fontWeight: 700,
+          color: "#334155",
+          letterSpacing: "0.02em",
+        },
+        body: {
+          fontSize: "0.95rem",
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontSize: "0.8rem",
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiListItemText: {
+      styleOverrides: {
+        primary: {
+          fontSize: "0.98rem",
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: ({ ownerState, theme }) => {
+          const base = {
+            borderRadius: 40,
+            boxShadow: "none",
+          };
+
+          if (ownerState.variant === "contained") {
+            const colorKey = (ownerState.color || "primary") as
+              | "primary"
+              | "secondary"
+              | "error"
+              | "info"
+              | "success"
+              | "warning";
+            const fixedColor = theme.palette[colorKey]?.main || theme.palette.primary.main;
+            return {
+              ...base,
+              "&:hover": {
+                backgroundColor: fixedColor,
+                boxShadow: "none",
+              },
+            };
+          }
+
+          return {
+            ...base,
+            paddingInline: 16,
+            "&:hover": {
+              backgroundColor: "transparent",
+            },
+          };
+        },
+      },
+    },
+  },
+});
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -26,14 +143,15 @@ const DashboardLayout: React.FC = () => {
     useState<NotificationPayload | null>(null);
 
   const user = useMemo(() => getCurrentUser(), []);
+
   const navItems = useMemo(() => {
     if (!user) return [];
 
     if (user.role === "DEVELOPER") {
       return [
-        { to: "/developer/dashboard", label: "Developer Dashboard" },
-        { to: "/bugs", label: "My Assigned Bugs" },
-        { to: "/reports", label: "Reports & Analytics" },
+        { to: "/developer/dashboard", label: "Dashboard" },
+        { to: "/bugs", label: "My Bugs" },
+        { to: "/reports", label: "Reports" },
       ];
     }
 
@@ -44,13 +162,22 @@ const DashboardLayout: React.FC = () => {
         { to: "/templates", label: "Templates" },
         { to: "/test-suites", label: "Test Suites" },
         { to: "/bugs", label: "Bugs" },
-        { to: "/reports", label: "Reports & Analytics" },
+        { to: "/reports", label: "Reports" },
+      ];
+    }
+
+    if (user.role === "ADMIN") {
+      return [
+        { to: "/bugs", label: "Bugs" },
+        { to: "/reports", label: "Reports" },
+        { to: "/admin/users", label: "Manage Users" },
+        { to: "/admin/roles", label: "Manage Roles" },
       ];
     }
 
     return [
       { to: "/bugs", label: "Bugs" },
-      { to: "/reports", label: "Reports & Analytics" },
+      { to: "/reports", label: "Reports" },
     ];
   }, [user]);
 
@@ -84,29 +211,7 @@ const DashboardLayout: React.FC = () => {
     };
   }, [user, refreshNotifications]);
 
-  useEffect(() => {
-    if (!toastNotification) return;
-    const timer = window.setTimeout(() => {
-      setToastNotification(null);
-    }, 4000);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [toastNotification]);
-
-  const unreadCount = notifications.filter((item) => !item.isRead).length;
-
-  const formatNotificationType = (type: string) =>
-    type
-      .toLowerCase()
-      .split("_")
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(" ");
-
-  const handleOpenNotifications = () => {
-    navigate("/notifications");
-  };
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleLogout = () => {
     disconnectNotificationSocket();
@@ -115,70 +220,101 @@ const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-layout">
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h1
-            className="text-xl font-bold"
-            style={{ color: "var(--primary-color)", margin: 0 }}
-          >
-            TestTrack Pro
-          </h1>
-          {user ? <p className="sidebar-user">{user.email}</p> : null}
-        </div>
-
-        <nav className="sidebar-nav">
-          <ul>
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) => `nav-link ${isActive ? "active" : ""}`}
-                >
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="sidebar-footer">
-          <button
-            type="button"
-            className="w-full secondary notification-toggle"
-            onClick={handleOpenNotifications}
-          >
-            Notifications
-            {unreadCount > 0 ? (
-              <span className="notification-count">{unreadCount}</span>
-            ) : null}
-          </button>
-
-          <button onClick={handleLogout} className="w-full secondary">
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="main-content">
-        <Outlet
-          context={{
-            notifications,
-            setNotifications,
-            refreshNotifications,
+    <ThemeProvider theme={dashboardTheme}>
+      <CssBaseline />
+      <Box sx={{ display: "flex", minHeight: "100vh" }}>
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              p: 3,
+            },
           }}
-        />
-      </main>
+        >
+          <Typography variant="h6" fontWeight={800} mb={1}>
+            TestTrack Pro
+          </Typography>
 
-      {toastNotification ? (
-        <div className="notification-toast" role="status" aria-live="polite">
-          <strong>{formatNotificationType(toastNotification.type)}</strong>
-          <span>Reference: {toastNotification.referenceId}</span>
-        </div>
-      ) : null}
-    </div>
+          {user ? (
+            <Typography variant="body2" color="text.secondary" mb={3}>
+              {user.email}
+            </Typography>
+          ) : null}
+
+          <List>
+            {navItems.map((item) => (
+              <ListItemButton
+                key={item.to}
+                component={NavLink}
+                to={item.to}
+                sx={{
+                  borderRadius: 2,
+                  mb: 1,
+                  "&.active": {
+                    backgroundColor: "primary.main",
+                    color: "#fff",
+                  },
+                }}
+              >
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            ))}
+          </List>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={() => navigate("/notifications")}
+            sx={{ mb: 2 }}
+          >
+            <Badge badgeContent={unreadCount} color="error">
+              Notifications
+            </Badge>
+          </Button>
+
+          <Button variant="contained" fullWidth onClick={handleLogout}>
+            Logout
+          </Button>
+        </Drawer>
+
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            p: 5,
+            backgroundColor: "#f7f9fc",
+          }}
+        >
+          <Outlet
+            context={{
+              notifications,
+              setNotifications,
+              refreshNotifications,
+            }}
+          />
+        </Box>
+
+        <Snackbar
+          open={Boolean(toastNotification)}
+          autoHideDuration={4000}
+          onClose={() => setToastNotification(null)}
+        >
+          <Alert
+            severity="info"
+            sx={{ width: "100%" }}
+            onClose={() => setToastNotification(null)}
+          >
+            {toastNotification?.type} - {toastNotification?.referenceId}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </ThemeProvider>
   );
 };
 

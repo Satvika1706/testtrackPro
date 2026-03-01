@@ -26,11 +26,14 @@ import BugReportPage from "./pages/BugReportPage";
 import DeveloperPerformanceReportPage from "./pages/DeveloperPerformanceReportPage";
 import TesterPerformanceReportPage from "./pages/TesterPerformanceReportPage";
 import DeveloperDashboardPage from "./pages/DeveloperDashboardPage";
+import ManageUsersPage from "./pages/ManageUsersPage";
+import ManageRolesPage from "./pages/ManageRolesPage";
 
 const TESTER_ONLY = ["TESTER"] as const;
 const DEVELOPER_ONLY = ["DEVELOPER"] as const;
 const ALL_ROLES = ["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"] as const;
 const DEV_BUG_ROLES = ["DEVELOPER", "TESTER", "ADMIN", "TRIAGE"] as const;
+const ADMIN_ONLY = ["ADMIN"] as const;
 
 function App() {
   return (
@@ -44,7 +47,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        {/* Private Routes (Wrapped in Dashboard Layout) */}
+     
         <Route
           element={(
             <RoleGuard allowedRoles={[...ALL_ROLES]} redirectTo="/login">
@@ -201,6 +204,22 @@ function App() {
             element={(
               <RoleGuard allowedRoles={["TESTER", "ADMIN", "TRIAGE"]} redirectTo="/reports">
                 <TesterPerformanceReportPage />
+              </RoleGuard>
+            )}
+          />
+          <Route
+            path="/admin/users"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <ManageUsersPage />
+              </RoleGuard>
+            )}
+          />
+          <Route
+            path="/admin/roles"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <ManageRolesPage />
               </RoleGuard>
             )}
           />
