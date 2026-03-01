@@ -6,8 +6,13 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Divider,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -20,6 +25,7 @@ import {
 import { getAllTestRuns, createTestRun } from "../api/testrun.api";
 import { getCurrentUser } from "../utils/auth";
 import { getTestCases } from "../api/testcases.api";
+import api from "../api/axios";
 
 interface TestRun {
   id: string;
@@ -39,12 +45,32 @@ interface TestCase {
   title: string;
 }
 
+interface TestSuite {
+  id: string;
+  name: string;
+  module?: string;
+}
+
+interface TestSuiteDetails {
+  id: string;
+  name: string;
+  testCases: Array<{
+    id: string;
+    order: number;
+    testCase: TestCase;
+  }>;
+}
+
 const TestRunListPage = () => {
   const currentUser = getCurrentUser();
   const canCreateRun = currentUser?.role === "TESTER";
   const [runs, setRuns] = useState<TestRun[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [suites, setSuites] = useState<TestSuite[]>([]);
+  const [selectedSuiteId, setSelectedSuiteId] = useState("");
+  const [suiteCases, setSuiteCases] = useState<TestCase[]>([]);
+  const [suiteLoading, setSuiteLoading] = useState(false);
   const [newRunName, setNewRunName] = useState("");
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,10 +98,14 @@ const TestRunListPage = () => {
     }
     setIsCreating(true);
     try {
-      const res = await getTestCases();
-      setTestCases(res.data || res);
+      const [caseRes, suiteRes] = await Promise.all([
+        getTestCases(),
+        api.get("/api/test-suites"),
+      ]);
+      setTestCases(caseRes.data || caseRes);
+      setSuites((suiteRes.data || []) as TestSuite[]);
     } catch (err) {
-      console.error("Failed to fetch test cases", err);
+      console.error("Failed to fetch test cases/suites", err);
     }
   };
 
@@ -98,10 +128,32 @@ const TestRunListPage = () => {
       setIsCreating(false);
       setNewRunName("");
       setSelectedCaseIds([]);
+      setSelectedSuiteId("");
+      setSuiteCases([]);
       void fetchRuns();
     } catch (err) {
       console.error("Failed to create test run", err);
       alert("Failed to create test run");
+    }
+  };
+
+  const handleSuiteChange = async (suiteId: string) => {
+    setSelectedSuiteId(suiteId);
+    setSuiteCases([]);
+
+    if (!suiteId) return;
+
+    setSuiteLoading(true);
+    try {
+      const res = await api.get(`/api/test-suites/${suiteId}`);
+      const suite = res.data as TestSuiteDetails;
+      const cases = (suite.testCases || []).map((relation) => relation.testCase);
+      setSuiteCases(cases);
+    } catch (err) {
+      console.error("Failed to fetch suite details", err);
+      setSuiteCases([]);
+    } finally {
+      setSuiteLoading(false);
     }
   };
 
@@ -166,9 +218,56 @@ const TestRunListPage = () => {
               required
             />
 
+            <FormControl fullWidth>
+              <InputLabel id="suite-select-label">Select Test Suite (optional)</InputLabel>
+              <Select
+                labelId="suite-select-label"
+                label="Select Test Suite (optional)"
+                value={selectedSuiteId}
+                onChange={(e) => void handleSuiteChange(e.target.value)}
+              >
+                <MenuItem value="">None</MenuItem>
+                {suites.map((suite) => (
+                  <MenuItem key={suite.id} value={suite.id}>
+                    {suite.name}{suite.module ? ` (${suite.module})` : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {selectedSuiteId ? (
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, maxHeight: 260, overflowY: "auto" }}>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
+                  Suite Test Cases ({suiteCases.length})
+                </Typography>
+                {suiteLoading ? (
+                  <Typography color="text.secondary">Loading suite cases...</Typography>
+                ) : suiteCases.length === 0 ? (
+                  <Typography color="text.secondary">No test cases in selected suite.</Typography>
+                ) : (
+                  <Stack>
+                    {suiteCases.map((tc) => (
+                      <FormControlLabel
+                        key={`suite-${tc.id}`}
+                        control={
+                          <Checkbox
+                            checked={selectedCaseIds.includes(tc.id)}
+                            onChange={() => toggleTestCase(tc.id)}
+                          />
+                        }
+                        label={tc.title}
+                      />
+                    ))}
+                  </Stack>
+                )}
+              </Paper>
+            ) : null}
+
+            <Divider />
+
             <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, maxHeight: 300, overflowY: "auto" }}>
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
-                Select Test Cases ({selectedCaseIds.length})
+                Select Individual Test Cases ({selectedCaseIds.length})
               </Typography>
               <Stack>
                 {testCases.map((tc) => (
@@ -187,7 +286,16 @@ const TestRunListPage = () => {
             </Paper>
 
             <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-              <Button type="button" variant="outlined" onClick={() => setIsCreating(false)}>
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() => {
+                  setIsCreating(false);
+                  setSelectedSuiteId("");
+                  setSuiteCases([]);
+                  setSelectedCaseIds([]);
+                }}
+              >
                 Cancel
               </Button>
               <Button type="submit" variant="contained">

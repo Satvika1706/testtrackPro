@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import Dashboard from "./pages/Dashboard";
 import DashboardLayout from "./layouts/DashboardLayout";
 import RoleGuard from "./components/RoleGuard";
 
@@ -25,12 +26,10 @@ import TestExecutionReportPage from "./pages/TestExecutionReportPage";
 import BugReportPage from "./pages/BugReportPage";
 import DeveloperPerformanceReportPage from "./pages/DeveloperPerformanceReportPage";
 import TesterPerformanceReportPage from "./pages/TesterPerformanceReportPage";
-import DeveloperDashboardPage from "./pages/DeveloperDashboardPage";
 import ManageUsersPage from "./pages/ManageUsersPage";
 import ManageRolesPage from "./pages/ManageRolesPage";
 
 const TESTER_ONLY = ["TESTER"] as const;
-const DEVELOPER_ONLY = ["DEVELOPER"] as const;
 const ALL_ROLES = ["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"] as const;
 const DEV_BUG_ROLES = ["DEVELOPER", "TESTER", "ADMIN", "TRIAGE"] as const;
 const ADMIN_ONLY = ["ADMIN"] as const;
@@ -56,17 +55,21 @@ function App() {
           )}
         >
           <Route
-            path="/developer/dashboard"
+            path="/dashboard"
             element={(
-              <RoleGuard allowedRoles={[...DEVELOPER_ONLY]} redirectTo="/bugs">
-                <DeveloperDashboardPage />
+              <RoleGuard allowedRoles={[...ALL_ROLES]} redirectTo="/login">
+                <Dashboard />
               </RoleGuard>
             )}
           />
           <Route
+            path="/developer/dashboard"
+            element={<Navigate to="/dashboard" replace />}
+          />
+          <Route
             path="/test-cases"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <TestCaseList />
               </RoleGuard>
             )}
@@ -74,15 +77,19 @@ function App() {
           <Route
             path="/test-cases/create"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <CreateTestCase />
               </RoleGuard>
             )}
           />
           <Route
+            path="/test-cases/new"
+            element={<Navigate to="/test-cases/create" replace />}
+          />
+          <Route
             path="/test-case/edit/:id"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <EditTestCase />
               </RoleGuard>
             )}
@@ -90,7 +97,7 @@ function App() {
           <Route
             path="/templates"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <Templates />
               </RoleGuard>
             )}
@@ -98,7 +105,7 @@ function App() {
           <Route
             path="/test-suites"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <TestSuites />
               </RoleGuard>
             )}
@@ -106,7 +113,7 @@ function App() {
           <Route
             path="/test-suites/:id"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <TestSuiteDetails />
               </RoleGuard>
             )}
@@ -114,7 +121,7 @@ function App() {
           <Route
             path="/test-runs"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <TestRunListPage />
               </RoleGuard>
             )}
@@ -122,7 +129,7 @@ function App() {
           <Route
             path="/test-runs/:id"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <TestRunPage />
               </RoleGuard>
             )}
@@ -130,7 +137,7 @@ function App() {
           <Route
             path="/execution/:id"
             element={(
-              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={[...TESTER_ONLY]} redirectTo="/dashboard">
                 <ExecutionPage />
               </RoleGuard>
             )}
@@ -162,7 +169,7 @@ function App() {
           <Route
             path="/notifications"
             element={(
-              <RoleGuard allowedRoles={["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"]} redirectTo="/developer/dashboard">
+              <RoleGuard allowedRoles={["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"]} redirectTo="/dashboard">
                 <NotificationsPage />
               </RoleGuard>
             )}

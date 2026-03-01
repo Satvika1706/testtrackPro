@@ -7,6 +7,18 @@ import {
 } from "../api/report.api";
 import { getCurrentUser } from "../utils/auth";
 import { exportElementAsPdf } from "../utils/reportPdf";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface DeveloperPerformanceResponse {
   viewer: {
@@ -122,28 +134,27 @@ const SimpleLine = ({
   points: Array<{ week: string; resolved: number }>;
   title: string;
 }) => {
-  const max = Math.max(...points.map((point) => point.resolved), 1);
+  const chartData = points.length ? points : [{ week: "No Data", resolved: 0 }];
   return (
     <div className="chart-shell">
       <h3>{title}</h3>
-      {points.length === 0 ? (
-        <p className="text-gray-600">No weekly points available.</p>
-      ) : (
-        <div className="bar-chart-wrap">
-          {points.map((point) => (
-            <div className="bar-row" key={point.week}>
-              <span className="bar-label">{point.week}</span>
-              <div className="bar-track">
-                <div
-                  className="bar-fill"
-                  style={{ width: `${(point.resolved / max) * 100}%`, backgroundColor: "#2563eb" }}
-                />
-              </div>
-              <span className="bar-value">{point.resolved}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <ResponsiveContainer width="100%" height={260}>
+        <LineChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="week" angle={-25} textAnchor="end" height={52} tick={{ fontSize: 11 }} />
+          <YAxis />
+          <Tooltip />
+          <Line
+            type="monotone"
+            dataKey="resolved"
+            stroke="#2563eb"
+            strokeWidth={2.5}
+            dot={{ r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      {points.length === 0 ? <p className="text-gray-600">No weekly points available for selected filters.</p> : null}
     </div>
   );
 };
@@ -289,6 +300,27 @@ const DeveloperPerformanceReportPage = () => {
     [report]
   );
 
+  const agingBucketChartData = useMemo(() => {
+    if (!report) return [];
+    const buckets = report.personal.agingAndRisk.buckets;
+    return [
+      { bucket: "0-3", count: buckets["0-3"] },
+      { bucket: "4-7", count: buckets["4-7"] },
+      { bucket: "8-14", count: buckets["8-14"] },
+      { bucket: "15+", count: buckets["15+"] },
+    ];
+  }, [report]);
+
+  const oldestBugsChartData = useMemo(() => {
+    if (!report) return [];
+    const oldest = report.personal.agingAndRisk.topOldestOpenBugs;
+    if (!oldest.length) return [{ bug: "No Open Bugs", ageDays: 0 }];
+    return oldest.map((bug) => ({
+      bug: bug.bugId,
+      ageDays: bug.ageDays,
+    }));
+  }, [report]);
+
   if (!hasAccess) {
     return (
       <div className="card">
@@ -409,23 +441,29 @@ const DeveloperPerformanceReportPage = () => {
 
             <div className="chart-shell">
               <h3>Aging Buckets</h3>
-              <p>0-3 days: {report.personal.agingAndRisk.buckets["0-3"]}</p>
-              <p>4-7 days: {report.personal.agingAndRisk.buckets["4-7"]}</p>
-              <p>8-14 days: {report.personal.agingAndRisk.buckets["8-14"]}</p>
-              <p>15+ days: {report.personal.agingAndRisk.buckets["15+"]}</p>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={agingBucketChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bucket" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
 
             <div className="chart-shell">
               <h3>Top 5 Oldest Open Bugs</h3>
-              {report.personal.agingAndRisk.topOldestOpenBugs.length === 0 ? (
-                <p className="text-gray-600">No open bugs.</p>
-              ) : (
-                <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-                  {report.personal.agingAndRisk.topOldestOpenBugs.map((bug) => (
-                    <li key={bug.id}>{bug.bugId} - {bug.ageDays} days - {bug.title}</li>
-                  ))}
-                </ul>
-              )}
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={oldestBugsChartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="bug" width={110} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="ageDays" name="Age (days)" fill="#ef4444" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </section>
 
@@ -436,9 +474,7 @@ const DeveloperPerformanceReportPage = () => {
                 <SummaryCard key={card.label} label={card.label} value={card.value} />
               ))}
             </div>
-            <p className="text-gray-600" style={{ marginTop: "0.75rem" }}>
-              Sprint Health: {report.project.sprintHealth.status} - {report.project.sprintHealth.note}
-            </p>
+           
           </section>
 
           {report.adminComparison ? (

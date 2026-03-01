@@ -100,6 +100,8 @@ const getInputDate = (value?: string) => (value ? value.slice(0, 10) : "");
 const TesterPerformanceReportPage = () => {
   const user = getCurrentUser();
   const hasAccess = user ? REPORT_ACCESS_ROLES.includes(user.role) : false;
+  const isTester = user?.role === "TESTER";
+  const scopedTesterId = isTester && user ? String(user.userId) : "";
 
   const [report, setReport] = useState<TesterPerformanceResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -110,7 +112,7 @@ const TesterPerformanceReportPage = () => {
     fromDate: "",
     toDate: "",
     testRunId: "",
-    testerId: ""
+    testerId: scopedTesterId
   });
   const printableRef = useRef<HTMLDivElement | null>(null);
 
@@ -128,8 +130,13 @@ const TesterPerformanceReportPage = () => {
   };
 
   useEffect(() => {
-    void loadReport(filters);
-  }, []);
+    const initialFilters: TesterPerformanceFilters = {
+      ...filters,
+      testerId: scopedTesterId
+    };
+    setFilters(initialFilters);
+    void loadReport(initialFilters);
+  }, [scopedTesterId]);
 
   const handleFilterChange = (key: keyof TesterPerformanceFilters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -144,7 +151,7 @@ const TesterPerformanceReportPage = () => {
       fromDate: "",
       toDate: "",
       testRunId: "",
-      testerId: ""
+      testerId: scopedTesterId
     };
     setFilters(resetFilters);
     void loadReport(resetFilters);
@@ -229,10 +236,10 @@ const TesterPerformanceReportPage = () => {
       report.filters.options.testRuns.find((run) => run.id === filters.testRunId)?.name ??
       "All Test Runs";
     const testerName =
-      report.filters.options.testers.find((tester) => String(tester.id) === filters.testerId)
+      report.filters.options.testers.find((tester) => String(tester.id) === (filters.testerId || scopedTesterId))
         ?.email ?? "All Testers";
     return `From: ${filters.fromDate || "Any"} | To: ${filters.toDate || "Any"} | Run: ${runName} | Tester: ${testerName}`;
-  }, [report, filters]);
+  }, [report, filters, scopedTesterId]);
 
   const kpiCards = useMemo(
     () =>
@@ -352,21 +359,23 @@ const TesterPerformanceReportPage = () => {
               ))}
             </select>
           </div>
-          <div className="form-group">
-            <label htmlFor="tester-filter">Tester</label>
-            <select
-              id="tester-filter"
-              value={filters.testerId}
-              onChange={(event) => handleFilterChange("testerId", event.target.value)}
-            >
-              <option value="">All Testers</option>
-              {(report?.filters.options.testers ?? []).map((tester) => (
-                <option key={tester.id} value={String(tester.id)}>
-                  {tester.email}
-                </option>
-              ))}
-            </select>
-          </div>
+          {!isTester ? (
+            <div className="form-group">
+              <label htmlFor="tester-filter">Tester</label>
+              <select
+                id="tester-filter"
+                value={filters.testerId}
+                onChange={(event) => handleFilterChange("testerId", event.target.value)}
+              >
+                <option value="">All Testers</option>
+                {(report?.filters.options.testers ?? []).map((tester) => (
+                  <option key={tester.id} value={String(tester.id)}>
+                    {tester.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         <div className="report-actions">

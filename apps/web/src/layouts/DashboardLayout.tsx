@@ -12,7 +12,7 @@ import {
 } from "../api/notification.api";
 import {
   Alert,
-  Badge,
+  Avatar,
   Box,
   Button,
   CssBaseline,
@@ -27,7 +27,7 @@ import {
   createTheme,
 } from "@mui/material";
 
-const drawerWidth = 260;
+const drawerWidth = 280;
 
 export interface NotificationContext {
   notifications: NotificationItem[];
@@ -92,7 +92,7 @@ const dashboardTheme = createTheme({
     MuiListItemText: {
       styleOverrides: {
         primary: {
-          fontSize: "0.98rem",
+          fontSize: "0.96rem",
           fontWeight: 600,
         },
       },
@@ -144,41 +144,41 @@ const DashboardLayout: React.FC = () => {
 
   const user = useMemo(() => getCurrentUser(), []);
 
-  const navItems = useMemo(() => {
+  const navSections = useMemo(() => {
     if (!user) return [];
 
-    if (user.role === "DEVELOPER") {
-      return [
-        { to: "/developer/dashboard", label: "Dashboard" },
-        { to: "/bugs", label: "My Bugs" },
-        { to: "/reports", label: "Reports" },
-      ];
-    }
+    const main = [{ to: "/dashboard", label: "\uD83C\uDFE0 Dashboard", end: true }];
 
-    if (user.role === "TESTER") {
-      return [
-        { to: "/test-cases", label: "Test Cases" },
-        { to: "/test-runs", label: "Test Runs" },
-        { to: "/templates", label: "Templates" },
-        { to: "/test-suites", label: "Test Suites" },
-        { to: "/bugs", label: "Bugs" },
-        { to: "/reports", label: "Reports" },
-      ];
-    }
+    const testManagement = user.role === "TESTER"
+      ? [
+          { to: "/test-cases", label: "\uD83D\uDCC4 Test Cases", end: false },
+          { to: "/test-suites", label: "\uD83D\uDDD2 Test Suites", end: false },
+          { to: "/test-runs", label: "\u25B6 Test Runs", end: false },
+          { to: "/templates", label: "\uD83D\uDCD1 Templates", end: false },
+        ]
+      : [];
+
+    const defects = [{ to: "/bugs", label: "\uD83D\uDC1E Bugs", end: false }];
+    const insights = [{ to: "/reports", label: "\uD83D\uDCCA Reports", end: false }];
+
+    const sections = [
+      { title: "MAIN", items: main },
+      { title: "TEST MANAGEMENT", items: testManagement },
+      { title: "DEFECTS", items: defects },
+      { title: "INSIGHTS", items: insights },
+    ].filter((section) => section.items.length > 0);
 
     if (user.role === "ADMIN") {
-      return [
-        { to: "/bugs", label: "Bugs" },
-        { to: "/reports", label: "Reports" },
-        { to: "/admin/users", label: "Manage Users" },
-        { to: "/admin/roles", label: "Manage Roles" },
-      ];
+      sections.push({
+        title: "ADMIN",
+        items: [
+          { to: "/admin/users", label: "Manage Users", end: false },
+          { to: "/admin/roles", label: "Manage Roles", end: false },
+        ],
+      });
     }
 
-    return [
-      { to: "/bugs", label: "Bugs" },
-      { to: "/reports", label: "Reports" },
-    ];
+    return sections;
   }, [user]);
 
   const refreshNotifications = useCallback(async () => {
@@ -219,6 +219,9 @@ const DashboardLayout: React.FC = () => {
     navigate("/login");
   };
 
+  const username = user?.email ? user.email.split("@")[0] : "username";
+  const initials = username.slice(0, 2).toUpperCase();
+
   return (
     <ThemeProvider theme={dashboardTheme}>
       <CssBaseline />
@@ -231,37 +234,62 @@ const DashboardLayout: React.FC = () => {
             "& .MuiDrawer-paper": {
               width: drawerWidth,
               boxSizing: "border-box",
-              p: 3,
+              p: 2.5,
             },
           }}
         >
-          <Typography variant="h6" fontWeight={800} mb={1}>
-            TestTrack Pro
-          </Typography>
-
-          {user ? (
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              {user.email}
+          <Box sx={{ mb: 1 }}>
+            <Avatar sx={{ width: 38, height: 38, bgcolor: "primary.main", fontSize: "0.9rem", mb: 1 }}>
+              {initials}
+            </Avatar>
+            <Typography variant="h6" fontWeight={800} mb={0.5}>
+              TestTrack Pro
             </Typography>
-          ) : null}
+            <Typography variant="body2" sx={{ textTransform: "capitalize", fontWeight: 700 }}>
+              {username}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {user?.email}
+            </Typography>
+          </Box>
 
-          <List>
-            {navItems.map((item) => (
-              <ListItemButton
-                key={item.to}
-                component={NavLink}
-                to={item.to}
-                sx={{
-                  borderRadius: 2,
-                  mb: 1,
-                  "&.active": {
-                    backgroundColor: "primary.main",
-                    color: "#fff",
-                  },
-                }}
-              >
-                <ListItemText primary={item.label} />
-              </ListItemButton>
+          <Divider sx={{ my: 2 }} />
+
+          <List sx={{ pt: 0, flexGrow: 1 }}>
+            {navSections.map((section) => (
+              <Box key={section.title} sx={{ mb: 1.25 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    px: 1.25,
+                    color: "#64748b",
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {section.title}
+                </Typography>
+
+                {section.items.map((item) => (
+                  <ListItemButton
+                    key={item.to}
+                    component={NavLink}
+                    to={item.to}
+                    end={item.end}
+                    sx={{
+                      borderRadius: 2,
+                      mt: 0.45,
+                      mb: 0.2,
+                      "&.active": {
+                        backgroundColor: "primary.main",
+                        color: "#fff",
+                      },
+                    }}
+                  >
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                ))}
+              </Box>
             ))}
           </List>
 
@@ -271,15 +299,13 @@ const DashboardLayout: React.FC = () => {
             variant="outlined"
             fullWidth
             onClick={() => navigate("/notifications")}
-            sx={{ mb: 2 }}
+            sx={{ mb: 1.5 }}
           >
-            <Badge badgeContent={unreadCount} color="error">
-              Notifications
-            </Badge>
+            {"\uD83D\uDD14"} Notifications ({unreadCount})
           </Button>
 
           <Button variant="contained" fullWidth onClick={handleLogout}>
-            Logout
+            Logout {"\u21AA"}
           </Button>
         </Drawer>
 

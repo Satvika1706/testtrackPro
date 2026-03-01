@@ -48,7 +48,7 @@ const Templates = () => {
                 <Button
                   type="button"
                   variant="outlined"
-                  onClick={() => navigate(`/test-cases/new?templateId=${t.id}`)}
+                  onClick={() => navigate(`/test-cases/create?templateId=${t.id}`)}
                 >
                   Use Template
                 </Button>

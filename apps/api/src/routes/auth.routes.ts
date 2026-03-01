@@ -7,7 +7,7 @@ import { sendVerificationEmail } from "./sendEmail";
 
 const router = Router();
 
-const ALLOWED_ROLES = ["TESTER", "DEVELOPER", "TRIAGE", "ADMIN"] as const;
+const SELF_REGISTRATION_ROLES = ["TESTER", "DEVELOPER"] as const;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isStrongPassword(password: string): boolean {
@@ -31,13 +31,19 @@ function buildFrontendVerifyUrl(token: string): string {
 
 router.post("/register", async (req, res) => {
   try {
+    const rawUsername = typeof req.body?.username === "string" ? req.body.username : "";
+    const username = rawUsername.trim();
     const rawEmail = typeof req.body?.email === "string" ? req.body.email : "";
     const email = rawEmail.trim().toLowerCase();
     const password = typeof req.body?.password === "string" ? req.body.password : "";
     const role = typeof req.body?.role === "string" ? req.body.role : "TESTER";
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "Username, email and password are required" });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ message: "Username must be at least 3 characters" });
     }
 
     if (!isValidEmail(email)) {
@@ -56,14 +62,22 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    const selectedRole = ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number])
-      ? (role as (typeof ALLOWED_ROLES)[number])
+    const existingUsername = await prisma.user.findFirst({ where: { username } });
+    if (existingUsername) {
+      return res.status(409).json({ message: "Username is already taken" });
+    }
+
+    const selectedRole = SELF_REGISTRATION_ROLES.includes(
+      role as (typeof SELF_REGISTRATION_ROLES)[number]
+    )
+      ? (role as (typeof SELF_REGISTRATION_ROLES)[number])
       : "TESTER";
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString("hex");
 
     const user = await prisma.user.create({
       data: {
+        username,
         email,
         password: hashedPassword,
         role: selectedRole,
@@ -92,6 +106,7 @@ router.post("/register", async (req, res) => {
       emailDispatch,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         role: user.role,
       },
@@ -156,9 +171,18 @@ router.post("/login", async (req, res) => {
     }
 
     if (!user.isEmailVerified) {
-      return res.status(403).json({
-        message: "Please verify your email before logging in",
-      });
+      // Backward compatibility: legacy users created before verification rollout
+      // may have isEmailVerified=false with no verification token.
+      if (!user.verificationToken) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+        });
+      } else {
+        return res.status(403).json({
+          message: "Please verify your email before logging in",
+        });
+      }
     }
 
     if (user.lockUntil && user.lockUntil > new Date()) {
@@ -222,6 +246,7 @@ router.post("/login", async (req, res) => {
       token,
       user: {
         id: user.id,
+        username: user.username,
         email: user.email,
         role: user.role,
       },

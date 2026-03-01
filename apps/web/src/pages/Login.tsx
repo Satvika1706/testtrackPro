@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link as RouterLink } from "react-router-dom";
 import api from "../api/axios";
-import { getCurrentUser } from "../utils/auth";
 
 import {
   Typography,
@@ -34,13 +33,7 @@ const Login = () => {
       });
 
       localStorage.setItem("token", res.data.token);
-      const user = getCurrentUser();
-
-      navigate(
-        user?.role === "DEVELOPER"
-          ? "/developer/dashboard"
-          : "/test-cases"
-      );
+      navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || "Login failed");
     } finally {
