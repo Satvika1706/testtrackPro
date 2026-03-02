@@ -137,7 +137,7 @@ router.get("/verify-email", async (req, res) => {
 
     const user = await prisma.user.findFirst({ where: { verificationToken: token } });
     if (!user) {
-      return res.status(400).json({ message: "Invalid or expired token" });
+      return res.json({ message: "Email already verified or verification link expired" });
     }
 
     await prisma.user.update({
@@ -168,21 +168,6 @@ router.post("/login", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    if (!user.isEmailVerified) {
-      // Backward compatibility: legacy users created before verification rollout
-      // may have isEmailVerified=false with no verification token.
-      if (!user.verificationToken) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { isEmailVerified: true },
-        });
-      } else {
-        return res.status(403).json({
-          message: "Please verify your email before logging in",
-        });
-      }
     }
 
     if (user.lockUntil && user.lockUntil > new Date()) {
@@ -216,6 +201,18 @@ router.post("/login", async (req, res) => {
       });
 
       return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // One-way verification: once a user logs in with valid credentials,
+    // we normalize account state so they are not asked to verify again.
+    if (!user.isEmailVerified) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+          verificationToken: null,
+        },
+      });
     }
 
     await prisma.user.update({

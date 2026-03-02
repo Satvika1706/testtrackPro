@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   connectNotificationSocket,
   disconnectNotificationSocket,
@@ -35,9 +35,9 @@ export interface NotificationContext {
   refreshNotifications: () => Promise<void>;
 }
 
-const dashboardTheme = createTheme({
+const buildDashboardTheme = (mode: "light" | "dark") => createTheme({
   palette: {
-    mode: "light",
+    mode,
     primary: {
       main: "#2563eb",
     },
@@ -45,46 +45,54 @@ const dashboardTheme = createTheme({
       main: "#f97362",
     },
     background: {
-      default: "#f7f9fc",
+      default: mode === "dark" ? "#0b1220" : "#f7f9fc",
+      paper: mode === "dark" ? "#0f172a" : "#ffffff",
+    },
+    text: {
+      primary: mode === "dark" ? "#e2e8f0" : "#0f172a",
+      secondary: mode === "dark" ? "#94a3b8" : "#64748b",
     },
   },
   typography: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
     h6: {
-      fontSize: "1.45rem",
+      fontSize: "1.75rem",
       fontWeight: 800,
     },
     body1: {
-      fontSize: "1rem",
+      fontSize: "1.43rem",
     },
     body2: {
-      fontSize: "0.95rem",
+      fontSize: "1rem",
+    },
+    caption: {
+      fontSize: "1.2rem",
     },
     button: {
       textTransform: "none",
       fontWeight: 700,
-      fontSize: "0.98rem",
+      fontSize: "1.02rem",
     },
   },
   components: {
     MuiTableCell: {
       styleOverrides: {
         head: {
-          fontSize: "0.86rem",
+          fontSize: "0.94rem",
           fontWeight: 700,
           color: "#334155",
           letterSpacing: "0.02em",
         },
         body: {
-          fontSize: "0.95rem",
+          fontSize: "1rem",
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          fontSize: "0.8rem",
+          fontSize: "0.98rem",
           fontWeight: 600,
         },
       },
@@ -92,7 +100,7 @@ const dashboardTheme = createTheme({
     MuiListItemText: {
       styleOverrides: {
         primary: {
-          fontSize: "0.96rem",
+          fontSize: "1.06rem",
           fontWeight: 600,
         },
       },
@@ -138,11 +146,16 @@ const dashboardTheme = createTheme({
 
 const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [toastNotification, setToastNotification] =
     useState<NotificationPayload | null>(null);
+  const [themeMode, setThemeMode] = useState<"light" | "dark">(
+    () => (localStorage.getItem("themeMode") as "light" | "dark") || "light"
+  );
 
   const user = useMemo(() => getCurrentUser(), []);
+  const dashboardTheme = useMemo(() => buildDashboardTheme(themeMode), [themeMode]);
 
   const navSections = useMemo(() => {
     if (!user) return [];
@@ -213,6 +226,11 @@ const DashboardLayout: React.FC = () => {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  useEffect(() => {
+    localStorage.setItem("themeMode", themeMode);
+    document.documentElement.setAttribute("data-theme", themeMode);
+  }, [themeMode]);
+
   const handleLogout = () => {
     disconnectNotificationSocket();
     localStorage.removeItem("token");
@@ -221,6 +239,18 @@ const DashboardLayout: React.FC = () => {
 
   const username = user?.email ? user.email.split("@")[0] : "username";
   const initials = username.slice(0, 2).toUpperCase();
+  const roleHome = user?.role === "ADMIN" ? "/admin/users" : "/dashboard";
+  const isRoleHome =
+    location.pathname === roleHome ||
+    (user?.role === "ADMIN" && location.pathname === "/dashboard");
+
+  const handleBackNavigation = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(roleHome);
+  };
 
   return (
     <ThemeProvider theme={dashboardTheme}>
@@ -235,6 +265,8 @@ const DashboardLayout: React.FC = () => {
               width: drawerWidth,
               boxSizing: "border-box",
               p: 2.5,
+              backgroundColor: themeMode === "dark" ? "#0f172a" : "#ffffff",
+              borderRight: themeMode === "dark" ? "1px solid #1e293b" : "1px solid #e2e8f0",
             },
           }}
         >
@@ -298,6 +330,15 @@ const DashboardLayout: React.FC = () => {
           <Button
             variant="outlined"
             fullWidth
+            onClick={() => setThemeMode((prev) => (prev === "light" ? "dark" : "light"))}
+            sx={{ mb: 1.5 }}
+          >
+            {themeMode === "light" ? "Switch to Dark \u263E" : "Switch to Light \u263C"}
+          </Button>
+
+          <Button
+            variant="outlined"
+            fullWidth
             onClick={() => navigate("/notifications")}
             sx={{ mb: 1.5 }}
           >
@@ -314,9 +355,25 @@ const DashboardLayout: React.FC = () => {
           sx={{
             flexGrow: 1,
             p: 5,
-            backgroundColor: "#f7f9fc",
+            backgroundColor: themeMode === "dark" ? "#0b1220" : "#f7f9fc",
           }}
         >
+          <Box sx={{ mb: 2.5 }}>
+            <Button
+              variant="outlined"
+              onClick={handleBackNavigation}
+              disabled={isRoleHome}
+              sx={{
+                minWidth: 0,
+                px: 2,
+                borderRadius: 2.5,
+                fontWeight: 700,
+              }}
+            >
+              {"\u2190"} Back
+            </Button>
+          </Box>
+
           <Outlet
             context={{
               notifications,

@@ -24,6 +24,7 @@ import {
   Typography,
   Divider,
   InputAdornment,
+  useTheme,
 } from "@mui/material";
 
 import { Link as RouterLink, useNavigate } from "react-router-dom";
@@ -44,6 +45,8 @@ interface TestCase {
 }
 
 const TestCaseList = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -146,7 +149,7 @@ const TestCaseList = () => {
   }
 
   return (
-    <Box sx={{ px: 4, py: 3, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+    <Box sx={{ px: 4, py: 3, backgroundColor: isDark ? "#0b1220" : "#f8fafc", minHeight: "100vh" }}>
       {/* HEADER */}
       <Stack
         direction={{ xs: "column", md: "row" }}
@@ -184,7 +187,9 @@ const TestCaseList = () => {
         sx={{
           p: 3,
           borderRadius: 3,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.04)",
+          boxShadow: isDark ? "0 6px 20px rgba(0,0,0,0.35)" : "0 6px 20px rgba(0,0,0,0.04)",
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
           mb: 3,
         }}
       >
@@ -194,7 +199,12 @@ const TestCaseList = () => {
             placeholder="Search test cases..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: 280 }}
+            sx={{
+              width: 280,
+              "& .MuiOutlinedInput-root": {
+                color: isDark ? "#e2e8f0" : "inherit",
+              },
+            }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -240,12 +250,27 @@ const TestCaseList = () => {
       <Paper
         sx={{
           borderRadius: 3,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+          boxShadow: isDark ? "0 8px 24px rgba(0,0,0,0.35)" : "0 8px 24px rgba(0,0,0,0.05)",
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
           overflow: "hidden",
         }}
       >
-        <Table>
-          <TableHead sx={{ backgroundColor: "#f1f5f9" }}>
+        <Table
+          sx={{
+            ...(isDark
+              ? {
+                  "& tbody tr:hover td": {
+                    backgroundColor: "#273549 !important",
+                  },
+                  "& tbody tr.Mui-selected td, & tbody tr.Mui-selected:hover td": {
+                    backgroundColor: "#334155 !important",
+                  },
+                }
+              : {}),
+          }}
+        >
+          <TableHead sx={{ backgroundColor: isDark ? "#0f172a" : "#f1f5f9" }}>
             <TableRow>
               <TableCell padding="checkbox">
                 <Checkbox
@@ -271,10 +296,18 @@ const TestCaseList = () => {
               <TableRow
                 key={tc.id}
                 hover
+                selected={selectedIds.includes(tc.id)}
                 sx={{
                   "&:hover": {
-                    backgroundColor: "#f8fafc",
+                    backgroundColor: isDark ? "#273549 !important" : "#f8fafc",
                   },
+                  ...(isDark
+                    ? {
+                        "&.Mui-selected, &.Mui-selected:hover": {
+                          backgroundColor: "#334155 !important",
+                        },
+                      }
+                    : {}),
                 }}
               >
                 <TableCell padding="checkbox">

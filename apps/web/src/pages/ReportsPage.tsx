@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from "@mui/material";
 import {
   Cell,
@@ -120,6 +121,8 @@ const PIE_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#8b5cf6", "#3b82f6", "#14b
 const formatStatus = (value: string) => value.replace(/_/g, " ");
 
 const ReportsPage = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const user = getCurrentUser();
   const hasAccess = user ? REPORT_ACCESS_ROLES.includes(user.role) : false;
   const [loading, setLoading] = useState(true);
@@ -249,7 +252,7 @@ const ReportsPage = () => {
         <Typography variant="h5" fontWeight={700} sx={{ fontSize: "2rem" }}>
           Reports & Analytics
         </Typography>
-        <Typography color="text.secondary">
+        <Typography color="text.secondary" sx={{ fontSize: "1.05rem", fontWeight: 500 }}>
           Premium analytics hub with report shortcuts, KPI snapshots, preview charts, and recent exports.
         </Typography>
       </Stack>
@@ -271,9 +274,11 @@ const ReportsPage = () => {
             sx={{
               p: 3,
               borderRadius: 4,
-              border: "1px solid #e2e8f0",
-              background: `linear-gradient(180deg, ${card.soft} 0%, #ffffff 100%)`,
-              boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+              border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+              background: isDark
+                ? "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)"
+                : `linear-gradient(180deg, ${card.soft} 0%, #ffffff 100%)`,
+              boxShadow: isDark ? "0 10px 24px rgba(2, 6, 23, 0.5)" : "0 10px 24px rgba(15, 23, 42, 0.06)",
               transition: "transform 0.2s ease, box-shadow 0.2s ease",
               "&:hover": {
                 transform: "translateY(-4px)",
@@ -302,10 +307,10 @@ const ReportsPage = () => {
                 <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
                   {card.title}
                 </Typography>
-                <Typography color="text.secondary" sx={{ mb: 1.25 }}>
+                <Typography color="text.secondary" sx={{ mb: 1.25, fontSize: "1.05rem", lineHeight: 1.6 }}>
                   {card.description}
                 </Typography>
-                <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 700 }}>
+                <Typography variant="body2" sx={{ color: isDark ? "#cbd5e1" : "#0f172a", fontWeight: 700 }}>
                   {card.statPreview(snapshot)}
                 </Typography>
               </Box>
@@ -340,11 +345,12 @@ const ReportsPage = () => {
             sx={{
               p: 2.25,
               borderRadius: 4,
-              border: "1px solid #e2e8f0",
-              boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
+              border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+              boxShadow: isDark ? "0 8px 18px rgba(2, 6, 23, 0.45)" : "0 8px 18px rgba(15, 23, 42, 0.06)",
+              backgroundColor: isDark ? "#1e293b" : "#ffffff",
             }}
           >
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: "1rem" }}>
               {item.label}
             </Typography>
             <Typography sx={{ mt: 1, fontSize: "1.55rem", fontWeight: 800 }}>
@@ -365,7 +371,14 @@ const ReportsPage = () => {
           mb: 3,
         }}
       >
-        <Paper sx={{ p: 2.5, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+        <Paper
+          sx={{
+            p: 2.5,
+            borderRadius: 4,
+            border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+            backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          }}
+        >
           <Typography sx={{ fontWeight: 700, mb: 1 }}>Execution Trend</Typography>
           <Box sx={{ width: "100%", height: 220 }}>
             <ResponsiveContainer>
@@ -379,7 +392,14 @@ const ReportsPage = () => {
           </Box>
         </Paper>
 
-        <Paper sx={{ p: 2.5, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+        <Paper
+          sx={{
+            p: 2.5,
+            borderRadius: 4,
+            border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+            backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          }}
+        >
           <Typography sx={{ fontWeight: 700, mb: 1 }}>Bug Status Distribution</Typography>
           <Box sx={{ width: "100%", height: 220 }}>
             <ResponsiveContainer>
@@ -399,9 +419,16 @@ const ReportsPage = () => {
       <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800 }}>
         Recent Reports
       </Typography>
-      <Paper sx={{ borderRadius: 4, border: "1px solid #e2e8f0", overflowX: "auto" }}>
+      <Paper
+        sx={{
+          borderRadius: 4,
+          border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+          overflowX: "auto",
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+        }}
+      >
         <Table>
-          <TableHead sx={{ backgroundColor: "#f8fafc" }}>
+          <TableHead sx={{ backgroundColor: isDark ? "#0f172a" : "#f8fafc" }}>
             <TableRow>
               <TableCell>Report Name</TableCell>
               <TableCell>Type</TableCell>

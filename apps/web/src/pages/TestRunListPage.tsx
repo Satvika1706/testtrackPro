@@ -21,6 +21,7 @@ import {
   TableRow,
   TextField,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { getAllTestRuns, createTestRun } from "../api/testrun.api";
 import { getCurrentUser } from "../utils/auth";
@@ -62,6 +63,8 @@ interface TestSuiteDetails {
 }
 
 const TestRunListPage = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const currentUser = getCurrentUser();
   const canCreateRun = currentUser?.role === "TESTER";
   const [runs, setRuns] = useState<TestRun[]>([]);
@@ -203,7 +206,15 @@ const TestRunListPage = () => {
       </Stack>
 
       {isCreating ? (
-        <Paper sx={{ p: 4, borderRadius: 3, mb: 3 }}>
+        <Paper
+          sx={{
+            p: 4,
+            borderRadius: 3,
+            mb: 3,
+            backgroundColor: isDark ? "#1e293b" : "#ffffff",
+            border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+          }}
+        >
           <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>
             New Test Run
           </Typography>
@@ -236,7 +247,17 @@ const TestRunListPage = () => {
             </FormControl>
 
             {selectedSuiteId ? (
-              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, maxHeight: 260, overflowY: "auto" }}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2.5,
+                  maxHeight: 260,
+                  overflowY: "auto",
+                  backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                  borderColor: isDark ? "#334155" : undefined,
+                }}
+              >
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
                   Suite Test Cases ({suiteCases.length})
                 </Typography>
@@ -265,7 +286,17 @@ const TestRunListPage = () => {
 
             <Divider />
 
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2.5, maxHeight: 300, overflowY: "auto" }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2.5,
+                maxHeight: 300,
+                overflowY: "auto",
+                backgroundColor: isDark ? "#0f172a" : "#ffffff",
+                borderColor: isDark ? "#334155" : undefined,
+              }}
+            >
               <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1.5 }}>
                 Select Individual Test Cases ({selectedCaseIds.length})
               </Typography>
@@ -306,9 +337,16 @@ const TestRunListPage = () => {
         </Paper>
       ) : null}
 
-      <Paper sx={{ borderRadius: 3, overflowX: "auto" }}>
+      <Paper
+        sx={{
+          borderRadius: 3,
+          overflowX: "auto",
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+        }}
+      >
         <Table>
-          <TableHead>
+          <TableHead sx={{ backgroundColor: isDark ? "#0f172a" : "#f8fafc" }}>
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Status</TableCell>

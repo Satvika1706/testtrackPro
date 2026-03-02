@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { getCurrentUser } from "./utils/auth";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
@@ -34,6 +35,14 @@ const ALL_ROLES = ["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"] as const;
 const DEV_BUG_ROLES = ["DEVELOPER", "TESTER", "ADMIN", "TRIAGE"] as const;
 const ADMIN_ONLY = ["ADMIN"] as const;
 
+const DashboardEntry = () => {
+  const user = getCurrentUser();
+  if (user?.role === "ADMIN") {
+    return <Navigate to="/admin/users" replace />;
+  }
+  return <Dashboard />;
+};
+
 function App() {
   return (
     <BrowserRouter>
@@ -58,7 +67,7 @@ function App() {
             path="/dashboard"
             element={(
               <RoleGuard allowedRoles={[...ALL_ROLES]} redirectTo="/login">
-                <Dashboard />
+                <DashboardEntry />
               </RoleGuard>
             )}
           />

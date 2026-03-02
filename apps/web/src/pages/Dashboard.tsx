@@ -12,6 +12,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { getCurrentUser, type AppRole } from "../utils/auth";
 import { getTestCases } from "../api/testcases.api";
@@ -465,6 +466,8 @@ const buildDashboardFromApi = async (role: AppRole): Promise<DashboardData> => {
 };
 
 const Dashboard = () => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const user = useMemo(() => getCurrentUser(), []);
   const role: AppRole = user?.role ?? "TESTER";
   const isDeveloper = role === "DEVELOPER";
@@ -553,11 +556,11 @@ const Dashboard = () => {
           sx={{
             borderRadius: 3,
             p: 1.5,
-            border: "1px solid #fde68a",
-            backgroundColor: "#fffbeb",
+            border: isDark ? "1px solid #854d0e" : "1px solid #fde68a",
+            backgroundColor: isDark ? "#422006" : "#fffbeb",
           }}
         >
-          <Typography variant="body2" sx={{ color: "#92400e" }}>
+          <Typography variant="body2" sx={{ color: isDark ? "#fde68a" : "#92400e" }}>
             {error}
           </Typography>
         </Box>
@@ -626,7 +629,15 @@ const Dashboard = () => {
           <DashboardCard title="Recent Activity Feed" subtitle="Pulled from recent failures and high-severity bugs" minHeight={360}>
             <Stack spacing={1.25}>
               {data.recentActivity.length ? data.recentActivity.map((item) => (
-                <Box key={item.id} sx={{ border: "1px solid #e6ecf5", borderRadius: 3, p: 1.5 }}>
+                <Box
+                  key={item.id}
+                  sx={{
+                    border: isDark ? "1px solid #334155" : "1px solid #e6ecf5",
+                    borderRadius: 3,
+                    p: 1.5,
+                    backgroundColor: isDark ? "#111827" : "#ffffff",
+                  }}
+                >
                   <Typography fontWeight={700}>{item.title}</Typography>
                   <Typography variant="body2" color="text.secondary">{item.description}</Typography>
                   <Typography variant="caption" color="text.secondary">{item.when}</Typography>
@@ -675,7 +686,15 @@ const Dashboard = () => {
               {data.notifications.length ? data.notifications.map((notification) => {
                 const styles = getLevelStyles(notification.level);
                 return (
-                  <Box key={notification.id} sx={{ p: 1.5, borderRadius: 3, border: `1px solid ${styles.border}`, backgroundColor: styles.bg }}>
+                  <Box
+                    key={notification.id}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 3,
+                      border: `1px solid ${styles.border}`,
+                      backgroundColor: isDark ? "#111827" : styles.bg,
+                    }}
+                  >
                     <Typography fontWeight={700} sx={{ color: styles.color }}>{notification.title}</Typography>
                     <Typography variant="body2" sx={{ color: styles.color }}>{notification.message}</Typography>
                     <Typography variant="caption" sx={{ color: styles.color }}>{notification.createdAt}</Typography>
