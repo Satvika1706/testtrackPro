@@ -64,7 +64,7 @@ const TestCaseList = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { successMessage?: string } };
+  const location = useLocation();
 
   const fetchTestCases = async () => {
     try {
@@ -82,11 +82,14 @@ const TestCaseList = () => {
   }, []);
 
   useEffect(() => {
-    const message = location.state?.successMessage;
-    if (!message) return;
-    setSuccessMessage(message);
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.pathname, location.state, navigate]);
+    const state = location.state as { successMessage?: string } | null;
+    const message = state?.successMessage;
+
+    if (message) {
+      setSuccessMessage(message);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const filteredCases = useMemo(() => {
     return testCases.filter((tc) =>
@@ -233,7 +236,6 @@ const TestCaseList = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                 
                 </InputAdornment>
               ),
             }}
