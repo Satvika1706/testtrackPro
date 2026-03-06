@@ -33,7 +33,7 @@ import {
 } from "@mui/material";
 import { useProjectContext } from "../context/ProjectContext";
 
-const drawerWidth = 280;
+const drawerWidth = 248;
 
 export interface NotificationContext {
   notifications: NotificationItem[];
@@ -60,7 +60,7 @@ const buildDashboardTheme = (mode: "light" | "dark") => createTheme({
     },
   },
   typography: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
     h6: {
       fontSize: "1.25rem",
@@ -458,34 +458,36 @@ const DashboardLayout: React.FC = () => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: 5,
+            p: { xs: 2, sm: 3, md: 4 },
             backgroundColor: themeMode === "dark" ? "#0b1220" : "#f7f9fc",
           }}
         >
-          <Box sx={{ mb: 2.5 }}>
-            <Button
-              variant="outlined"
-              onClick={handleBackNavigation}
-              disabled={isRoleHome}
-              sx={{
-                minWidth: 0,
-                px: 2,
-                borderRadius: 2.5,
-                fontWeight: 700,
-              }}
-            >
-              {"\u2190"} Back
-            </Button>
-          </Box>
+          <Box sx={{ width: "100%", maxWidth: 1320, mx: "auto" }}>
+            <Box sx={{ mb: 2.5 }}>
+              <Button
+                variant="outlined"
+                onClick={handleBackNavigation}
+                disabled={isRoleHome}
+                sx={{
+                  minWidth: 0,
+                  px: 2,
+                  borderRadius: 2.5,
+                  fontWeight: 700,
+                }}
+              >
+                {"\u2190"} Back
+              </Button>
+            </Box>
 
-          <Outlet
-            key={activeProjectId || "no-project"}
-            context={{
-              notifications,
-              setNotifications,
-              refreshNotifications,
-            }}
-          />
+            <Outlet
+              key={activeProjectId || "no-project"}
+              context={{
+                notifications,
+                setNotifications,
+                refreshNotifications,
+              }}
+            />
+          </Box>
         </Box>
 
         <Snackbar

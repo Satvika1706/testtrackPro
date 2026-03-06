@@ -65,7 +65,7 @@ body,
   min-height: 100%;
 }
 html {
-  font-size: 16px;
+  font-size: clamp(13px, 0.25vw + 12px, 15px);
 }
 
 body {

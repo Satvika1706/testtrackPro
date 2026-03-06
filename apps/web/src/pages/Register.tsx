@@ -124,40 +124,50 @@ const Register = () => {
   };
 
   return (
-    <Box sx={{ minHeight: "100vh", display: "flex" }}>
+    <Box sx={{ minHeight: "100dvh", backgroundColor: "#f8fafc" }}>
       <Box
         sx={{
-          flex: 1,
-          display: { xs: "none", md: "flex" },
-          alignItems: "center",
-          justifyContent: "center",
-          px: 8,
-          background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+          minHeight: "100dvh",
+          display: "flex",
+          width: "100%",
+          maxWidth: 1440,
+          margin: "0 auto",
+          overflow: "hidden",
         }}
       >
-        <Box sx={{ textAlign: "center", maxWidth: 520 }}>
+        <Box
+          sx={{
+            flex: { md: "0 0 52%" },
+            display: { xs: "none", md: "flex" },
+            alignItems: "center",
+            justifyContent: "center",
+            px: { md: 6, lg: 8 },
+            background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+          }}
+      >
+        <Box sx={{ textAlign: "center", width: "100%", maxWidth: 460 }}>
           <Box
             component="img"
             src={Logo}
             alt="TestTrack Pro"
             sx={{
-              width: 360,
+              width: "clamp(240px, 24vw, 380px)",
               maxWidth: "100%",
-              mb: 4,
-              filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.35))",
+              mb: 3,
+              filter: "drop-shadow(0 22px 42px rgba(0,0,0,0.3))",
               transition: "transform 300ms ease",
-              "&:hover": { transform: "scale(1.04)" },
+              "&:hover": { transform: "scale(1.03)" },
             }}
           />
           <Typography
             sx={{
               color: "rgba(255,255,255,0.9)",
-              fontSize: "1rem",
+              fontSize: "0.98rem",
               fontWeight: 500,
               lineHeight: 1.6,
             }}
           >
-            Software Testing • Role Management • Workflow Automation
+            Software Testing | Role Management | Workflow Automation
           </Typography>
         </Box>
       </Box>
@@ -168,7 +178,7 @@ const Register = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          px: { xs: 2, sm: 3 },
+          px: { xs: 2, sm: 3, md: 4 },
           py: { xs: 3, sm: 4 },
           backgroundColor: "#f8fafc",
         }}
@@ -176,10 +186,10 @@ const Register = () => {
         <Paper
           sx={{
             width: "100%",
-            maxWidth: 500,
-            p: { xs: 3, sm: 4 },
+            maxWidth: 460,
+            p: { xs: 2.5, sm: 3.5 },
             borderRadius: 3,
-            boxShadow: "0 30px 60px rgba(15,23,42,0.15)",
+            boxShadow: "0 24px 48px rgba(15,23,42,0.14)",
           }}
         >
           <Stack spacing={2.5}>
@@ -188,7 +198,7 @@ const Register = () => {
                 variant="h3"
                 sx={{
                   fontWeight: 800,
-                  fontSize: { xs: "1.8rem", sm: "2.1rem" },
+                  fontSize: { xs: "1.7rem", sm: "2rem" },
                   letterSpacing: -0.6,
                 }}
               >
@@ -300,6 +310,8 @@ const Register = () => {
         </Paper>
       </Box>
 
+      </Box>
+
       <Snackbar open={successOpen} autoHideDuration={5000} onClose={() => setSuccessOpen(false)} anchorOrigin={{ vertical: "top", horizontal: "center" }}>
         <Alert onClose={() => setSuccessOpen(false)} severity="success" variant="filled">
           {successMessage}
@@ -310,3 +322,4 @@ const Register = () => {
 };
 
 export default Register;
+
