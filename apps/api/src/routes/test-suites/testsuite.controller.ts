@@ -1,26 +1,25 @@
 import { Request, Response } from "express";
 import { prisma } from "../../prisma";
+import { AuthRequest } from "../../middleware/auth.middleware";
+import { resolveProjectId } from "../../modules/projects/project.context";
 
-export const createTestSuite = async (req: Request, res: Response) => {
+export const createTestSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, module, parentSuiteId } = req.body;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    // 1️⃣ Basic validation
     if (!name) {
       return res.status(400).json({ message: "Suite name is required" });
-    }
-
-    // 2️⃣ Create suite
+    }
     const suite = await prisma.testSuite.create({
       data: {
         name,
         description,
         module,
+        projectId,
         parentSuiteId: parentSuiteId || null,
       },
-    });
-
-    // 3️⃣ Send response
+    });
     return res.status(201).json({
       message: "Test suite created successfully",
       suite,
@@ -30,10 +29,12 @@ export const createTestSuite = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const getTestSuites = async (req: Request, res: Response) => {
+export const getTestSuites = async (req: AuthRequest, res: Response) => {
   try {
+    const projectId = await resolveProjectId(req, req.user?.userId);
     const suites = await prisma.testSuite.findMany({
       where: {
+        projectId,
         isArchived: false,
         parentSuiteId: null, // top-level suites
       },
@@ -53,26 +54,22 @@ export const getTestSuites = async (req: Request, res: Response) => {
 };
 
 
-export const addTestCaseToSuite = async (req: Request, res: Response) => {
+export const addTestCaseToSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId } = req.params;
     const { testCaseId, order } = req.body;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    // 1️⃣ Validation
     if (!testCaseId) {
       return res.status(400).json({ message: "testCaseId is required" });
-    }
-
-    // 2️⃣ Check suite exists
+    }
     const suite = await prisma.testSuite.findUnique({
       where: { id: suiteId },
     });
 
-    if (!suite || suite.isArchived) {
+    if (!suite || suite.isArchived || suite.projectId !== projectId) {
       return res.status(404).json({ message: "Test suite not found" });
-    }
-
-    // 3️⃣ Prevent duplicate addition
+    }
     const existing = await prisma.testSuiteTestCase.findFirst({
       where: {
         testSuiteId: suiteId,
@@ -84,9 +81,7 @@ export const addTestCaseToSuite = async (req: Request, res: Response) => {
       return res
         .status(409)
         .json({ message: "Test case already in suite" });
-    }
-
-    // 4️⃣ Decide order
+    }
     let finalOrder = order;
 
     if (!finalOrder) {
@@ -96,17 +91,15 @@ export const addTestCaseToSuite = async (req: Request, res: Response) => {
       });
 
       finalOrder = last ? last.order + 1 : 1;
-    }
-// Check test case exists
+    }
 const testCase = await prisma.testCase.findUnique({
   where: { id: testCaseId },
 });
 
-if (!testCase) {
+if (!testCase || testCase.projectId !== projectId || testCase.isDeleted) {
   return res.status(404).json({ message: "Test case not found" });
 }
 
-    // 5️⃣ Create relation
     const relation = await prisma.testSuiteTestCase.create({
       data: {
         testSuiteId: suiteId,
@@ -124,12 +117,13 @@ if (!testCase) {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const getTestSuiteById = async (req: Request, res: Response) => {
+export const getTestSuiteById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    const suite = await prisma.testSuite.findUnique({
-      where: { id },
+    const suite = await prisma.testSuite.findFirst({
+      where: { id, projectId },
       include: {
         testCases: {
           orderBy: { order: "asc" },
@@ -150,11 +144,15 @@ export const getTestSuiteById = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const removeTestCaseFromSuite = async (req: Request, res: Response) => {
+export const removeTestCaseFromSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId, testCaseId } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const suite = await prisma.testSuite.findFirst({ where: { id: suiteId, projectId } });
+    if (!suite) {
+      return res.status(404).json({ message: "Test suite not found" });
+    }
 
-    // Check relation exists
     const relation = await prisma.testSuiteTestCase.findFirst({
       where: {
         testSuiteId: suiteId,
@@ -166,9 +164,7 @@ export const removeTestCaseFromSuite = async (req: Request, res: Response) => {
       return res.status(404).json({
         message: "Test case not found in this suite",
       });
-    }
-
-    // Delete relation
+    }
     await prisma.testSuiteTestCase.delete({
       where: { id: relation.id },
     });
@@ -181,27 +177,24 @@ export const removeTestCaseFromSuite = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const reorderTestCasesInSuite = async (req: Request, res: Response) => {
+export const reorderTestCasesInSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId } = req.params;
     const { testCaseIds } = req.body;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
     if (!Array.isArray(testCaseIds) || testCaseIds.length === 0) {
       return res.status(400).json({
         message: "testCaseIds array is required",
       });
-    }
-
-    // Check suite exists
-    const suite = await prisma.testSuite.findUnique({
-      where: { id: suiteId },
+    }
+    const suite = await prisma.testSuite.findFirst({
+      where: { id: suiteId, projectId },
     });
 
     if (!suite || suite.isArchived) {
       return res.status(404).json({ message: "Test suite not found" });
-    }
-
-    // Update order sequentially
+    }
     for (let i = 0; i < testCaseIds.length; i++) {
       await prisma.testSuiteTestCase.updateMany({
         where: {
@@ -222,13 +215,13 @@ export const reorderTestCasesInSuite = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const cloneTestSuite = async (req: Request, res: Response) => {
+export const cloneTestSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    // 1️⃣ Check original suite exists
-    const originalSuite = await prisma.testSuite.findUnique({
-      where: { id: suiteId },
+    const originalSuite = await prisma.testSuite.findFirst({
+      where: { id: suiteId, projectId },
       include: {
         testCases: true,
       },
@@ -238,19 +231,16 @@ export const cloneTestSuite = async (req: Request, res: Response) => {
       return res.status(404).json({
         message: "Original suite not found",
       });
-    }
-
-    // 2️⃣ Create new suite
+    }
     const clonedSuite = await prisma.testSuite.create({
       data: {
         name: `${originalSuite.name} (Copy)`,
         description: originalSuite.description,
         module: originalSuite.module,
+        projectId: originalSuite.projectId,
         parentSuiteId: originalSuite.parentSuiteId,
       },
-    });
-
-    // 3️⃣ Clone all test case relations
+    });
     const clonedRelations = originalSuite.testCases.map((relation) => ({
       testSuiteId: clonedSuite.id,
       testCaseId: relation.testCaseId,
@@ -272,12 +262,13 @@ export const cloneTestSuite = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const archiveTestSuite = async (req: Request, res: Response) => {
+export const archiveTestSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    const suite = await prisma.testSuite.findUnique({
-      where: { id: suiteId },
+    const suite = await prisma.testSuite.findFirst({
+      where: { id: suiteId, projectId },
     });
 
     if (!suite) {
@@ -301,12 +292,13 @@ export const archiveTestSuite = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-export const restoreTestSuite = async (req: Request, res: Response) => {
+export const restoreTestSuite = async (req: AuthRequest, res: Response) => {
   try {
     const { suiteId } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    const suite = await prisma.testSuite.findUnique({
-      where: { id: suiteId },
+    const suite = await prisma.testSuite.findFirst({
+      where: { id: suiteId, projectId },
     });
 
     if (!suite) {

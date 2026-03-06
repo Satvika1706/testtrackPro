@@ -6,8 +6,12 @@ import {
   updateTestCaseService, 
   deleteTestCaseService,
   cloneTestCaseService,
-  getTestCaseTemplatesService
+  getTestCaseTemplatesService,
+  previewTestCaseImportService,
+  commitTestCaseImportService,
 } from './testcase.service';
+import { IMPORT_TARGET_FIELDS } from "./testcase.import";
+import { resolveProjectId } from "../projects/project.context";
 
 
 interface AuthRequest extends Request {
@@ -18,26 +22,29 @@ interface AuthRequest extends Request {
 
 export const createTestCase = async (req: AuthRequest, res: Response) => {
   try {
-    const testCase = await createTestCaseService(req.body, req.user!.userId);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const testCase = await createTestCaseService(req.body, req.user!.userId, projectId);
     res.json(testCase);
   } catch (error) {
     res.status(500).json({ error: "Failed to create test case" });
   }
 };
 
-export const getTestCases = async (req: Request, res: Response) => {
+export const getTestCases = async (req: AuthRequest, res: Response) => {
   try {
-    const testCases = await getTestCasesService();
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const testCases = await getTestCasesService(projectId);
     res.json(testCases);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch test cases" });
   }
 };
 
-export const getTestCaseById = async (req: Request, res: Response) => {
+export const getTestCaseById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const testCase = await getTestCaseByIdService(id);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const testCase = await getTestCaseByIdService(id, projectId);
     if (!testCase) return res.status(404).json({ error: "Test case not found" });
     res.json(testCase);
   } catch (error) {
@@ -48,7 +55,8 @@ export const getTestCaseById = async (req: Request, res: Response) => {
 export const updateTestCaseController = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const updated = await updateTestCaseService(id, req.body, req.user!.userId);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const updated = await updateTestCaseService(id, req.body, req.user!.userId, projectId);
     res.json(updated);
   } catch (error) {
     console.error(error);
@@ -56,10 +64,11 @@ export const updateTestCaseController = async (req: AuthRequest, res: Response) 
   }
 };
 
-export const deleteTestCase = async (req: Request, res: Response) => {
+export const deleteTestCase = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    await deleteTestCaseService(id);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    await deleteTestCaseService(id, projectId);
     res.json({ message: "Test case deleted" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete test case" });
@@ -69,7 +78,8 @@ export const deleteTestCase = async (req: Request, res: Response) => {
 export const cloneTestCase = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const cloned = await cloneTestCaseService(id, req.user!.userId);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const cloned = await cloneTestCaseService(id, req.user!.userId, projectId);
     res.json(cloned);
   } catch (error) {
     res.status(500).json({ error: "Failed to clone test case" });
@@ -77,9 +87,17 @@ export const cloneTestCase = async (req: AuthRequest, res: Response) => {
 };
 import { prisma } from "../../prisma"; 
 
-export const getTestCaseHistory = async (req: Request, res: Response) => {
+export const getTestCaseHistory = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const testCase = await prisma.testCase.findFirst({
+      where: { id, projectId },
+      select: { id: true },
+    });
+    if (!testCase) {
+      return res.status(404).json({ error: "Test case not found" });
+    }
 
     const history = await prisma.testCaseHistory.findMany({
       where: { testCaseId: id },
@@ -103,11 +121,13 @@ export const createTemplateFromTestCase = async (
   try {
     const { id } = req.params;
     const { name, category, description } = req.body;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
     const template = await createTestCaseTemplateService(
       id,
       { name, category, description },
-      req.user!.userId
+      req.user!.userId,
+      projectId
     );
 
     res.status(201).json(template);
@@ -117,14 +137,50 @@ export const createTemplateFromTestCase = async (
   }
 };
 export const getTestCaseTemplates = async (
-  _req: Request,
+  req: AuthRequest,
   res: Response
 ) => {
   try {
-    const templates = await getTestCaseTemplatesService();
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const templates = await getTestCaseTemplatesService(projectId);
     res.json(templates);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch templates" });
+  }
+};
+
+export const getTestCaseImportMeta = async (_req: Request, res: Response) => {
+  res.json({
+    supportedFormats: ["csv", "xlsx", "xls", "json"],
+    targetFields: IMPORT_TARGET_FIELDS,
+    requiredFields: ["title"],
+  });
+};
+
+export const previewTestCaseImport = async (req: Request, res: Response) => {
+  try {
+    const { rows, mapping } = req.body || {};
+    const preview = await previewTestCaseImportService(rows, mapping);
+    res.json(preview);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || "Failed to preview import" });
+  }
+};
+
+export const commitTestCaseImport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { rows, mapping, mode } = req.body || {};
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const result = await commitTestCaseImportService(
+      rows,
+      mapping,
+      req.user!.userId,
+      projectId,
+      mode
+    );
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || "Failed to import test cases" });
   }
 };
   

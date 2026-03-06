@@ -3,6 +3,7 @@ import { AuthRequest } from "../../middleware/auth.middleware";
 import { createTestRunSchema } from "./testrun.schema";
 import * as testRunService from "./testrun.service";
 import { assignTestRunItemSchema } from "./testrun.schema";
+import { resolveProjectId } from "../projects/project.context";
 
 export const createTestRun = async (
   req: AuthRequest,
@@ -12,10 +13,12 @@ export const createTestRun = async (
     const parsedData = createTestRunSchema.parse(req.body);
 
     const userId = req.user!.userId;
+    const projectId = await resolveProjectId(req, userId);
 
     const testRun = await testRunService.createTestRun({
       ...parsedData,
-      userId
+      userId,
+      projectId,
     });
 
     return res.status(201).json({
@@ -31,7 +34,8 @@ export const createTestRun = async (
 };
 export const getAllTestRuns = async (req: AuthRequest, res: Response) => {
   try {
-    const runs = await testRunService.getAllTestRuns();
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const runs = await testRunService.getAllTestRuns(projectId);
     return res.status(200).json({
       message: "Test runs fetched successfully",
       data: runs
@@ -42,7 +46,8 @@ export const getAllTestRuns = async (req: AuthRequest, res: Response) => {
 };
 export const getTestRun = async (req: AuthRequest, res: Response) => {
   try {
-    const run = await testRunService.getTestRunById(req.params.id);
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const run = await testRunService.getTestRunById(req.params.id, projectId);
     return res.status(200).json({
       message: "Test run fetched successfully",
       data: run
@@ -57,8 +62,9 @@ export const getTestRunItems = async (
 ) => {
   try {
     const testRunId = req.params.id;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
-    const items = await testRunService.getTestRunItems(testRunId);
+    const items = await testRunService.getTestRunItems(testRunId, projectId);
 
     return res.status(200).json({
       message: "Test run items fetched successfully",
@@ -214,9 +220,10 @@ export const getRunProgress = async (
 ) => {
   try {
     const testRunId = req.params.id;
+    const projectId = await resolveProjectId(req, req.user?.userId);
 
    
-    const result = await testRunService.getRunProgress(testRunId);
+    const result = await testRunService.getRunProgress(testRunId, projectId);
 
 
     return res.status(200).json({
@@ -252,6 +259,34 @@ export const updateExecutionStepStatus = async (
   } catch (error: any) {
     res.status(400).json({
       message: error.message
+    });
+  }
+};
+
+export const createReExecution = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await testRunService.createReExecution(req.params.id);
+    return res.status(201).json({
+      message: "Re-execution created successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      message: error.message,
+    });
+  }
+};
+
+export const getExecutionComparison = async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await testRunService.getExecutionComparison(req.params.id);
+    return res.status(200).json({
+      message: "Execution comparison fetched successfully",
+      data: result,
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      message: error.message,
     });
   }
 };

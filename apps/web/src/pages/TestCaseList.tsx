@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -24,16 +25,18 @@ import {
   Typography,
   Divider,
   InputAdornment,
+  Snackbar,
   useTheme,
 } from "@mui/material";
 
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
   getTestCases,
   cloneTestCase,
   deleteTestCase,
   saveTestCaseAsTemplate,
 } from "../api/testcases.api";
+import TestCaseImportDialog from "../components/TestCaseImportDialog";
 
 interface TestCase {
   id: string;
@@ -56,15 +59,19 @@ const TestCaseList = () => {
   const [selectedTestCaseId, setSelectedTestCaseId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [templateCategory, setTemplateCategory] = useState("");
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const navigate = useNavigate();
+  const location = useLocation() as { state?: { successMessage?: string } };
 
   const fetchTestCases = async () => {
     try {
       const data = await getTestCases();
       setTestCases(data);
     } catch {
-      alert("Failed to load test cases");
+      setErrorMessage("Failed to load test cases");
     } finally {
       setLoading(false);
     }
@@ -73,6 +80,13 @@ const TestCaseList = () => {
   useEffect(() => {
     fetchTestCases();
   }, []);
+
+  useEffect(() => {
+    const message = location.state?.successMessage;
+    if (!message) return;
+    setSuccessMessage(message);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
 
   const filteredCases = useMemo(() => {
     return testCases.filter((tc) =>
@@ -92,9 +106,14 @@ const TestCaseList = () => {
 
   const handleBulkDelete = async () => {
     if (!selectedIds.length) return;
-    await Promise.all(selectedIds.map((id) => deleteTestCase(id)));
-    setTestCases((prev) => prev.filter((tc) => !selectedIds.includes(tc.id)));
-    setSelectedIds([]);
+    try {
+      await Promise.all(selectedIds.map((id) => deleteTestCase(id)));
+      setTestCases((prev) => prev.filter((tc) => !selectedIds.includes(tc.id)));
+      setSuccessMessage(`${selectedIds.length} test case(s) deleted successfully`);
+      setSelectedIds([]);
+    } catch {
+      setErrorMessage("Bulk deletion failed");
+    }
   };
 
   const handleBulkStatusUpdate = () => {
@@ -112,15 +131,18 @@ const TestCaseList = () => {
 
   const handleSaveTemplate = async () => {
     if (!selectedTestCaseId) return;
-
-    await saveTestCaseAsTemplate(selectedTestCaseId, {
-      name: templateName,
-      category: templateCategory,
-    });
-
-    setIsTemplateModalOpen(false);
-    setTemplateName("");
-    setTemplateCategory("");
+    try {
+      await saveTestCaseAsTemplate(selectedTestCaseId, {
+        name: templateName,
+        category: templateCategory,
+      });
+      setSuccessMessage("Template created successfully");
+      setIsTemplateModalOpen(false);
+      setTemplateName("");
+      setTemplateCategory("");
+    } catch {
+      setErrorMessage("Failed to create template");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -150,7 +172,7 @@ const TestCaseList = () => {
 
   return (
     <Box sx={{ px: 4, py: 3, backgroundColor: isDark ? "#0b1220" : "#f8fafc", minHeight: "100vh" }}>
-      {/* HEADER */}
+      
       <Stack
         direction={{ xs: "column", md: "row" }}
         justifyContent="space-between"
@@ -168,6 +190,9 @@ const TestCaseList = () => {
         </Box>
 
         <Stack direction="row" spacing={2}>
+          <Button variant="outlined" onClick={() => setIsImportOpen(true)}>
+            Import
+          </Button>
           <Button variant="outlined" component={RouterLink} to="/templates">
             Templates
           </Button>
@@ -182,7 +207,7 @@ const TestCaseList = () => {
         </Stack>
       </Stack>
 
-      {/* SEARCH + BULK */}
+      
       <Paper
         sx={{
           p: 3,
@@ -246,7 +271,7 @@ const TestCaseList = () => {
         </Stack>
       </Paper>
 
-      {/* TABLE */}
+      
       <Paper
         sx={{
           borderRadius: 3,
@@ -349,10 +374,35 @@ const TestCaseList = () => {
                     <Button size="small" variant="outlined" onClick={() => navigate(`/test-case/edit/${tc.id}`)}>
                       Edit
                     </Button>
-                    <Button size="small" variant="outlined" onClick={() => cloneTestCase(tc.id).then(fetchTestCases)}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={async () => {
+                        try {
+                          await cloneTestCase(tc.id);
+                          setSuccessMessage("Test case cloned successfully");
+                          await fetchTestCases();
+                        } catch {
+                          setErrorMessage("Failed to clone test case");
+                        }
+                      }}
+                    >
                       Clone
                     </Button>
-                    <Button size="small" color="error" variant="outlined" onClick={() => deleteTestCase(tc.id).then(fetchTestCases)}>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      onClick={async () => {
+                        try {
+                          await deleteTestCase(tc.id);
+                          setSuccessMessage("Test case deleted successfully");
+                          await fetchTestCases();
+                        } catch {
+                          setErrorMessage("Failed to delete test case");
+                        }
+                      }}
+                    >
                       Delete
                     </Button>
                     <Button
@@ -373,7 +423,7 @@ const TestCaseList = () => {
         </Table>
       </Paper>
 
-      {/* TEMPLATE MODAL */}
+      
       <Dialog open={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Create Template</DialogTitle>
         <Divider />
@@ -400,6 +450,32 @@ const TestCaseList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <TestCaseImportDialog
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImported={fetchTestCases}
+      />
+      <Snackbar
+        open={Boolean(successMessage)}
+        autoHideDuration={2500}
+        onClose={() => setSuccessMessage("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert severity="success" onClose={() => setSuccessMessage("")}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
+      <Snackbar
+        open={Boolean(errorMessage)}
+        autoHideDuration={3000}
+        onClose={() => setErrorMessage("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert severity="error" onClose={() => setErrorMessage("")}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

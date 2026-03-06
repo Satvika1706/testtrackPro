@@ -2,19 +2,14 @@ import { z } from "zod";
 
 export const bugStatusSchema = z.enum([
   "NEW",
-  "TRIAGE_PENDING",
-  "TRIAGED",
   "OPEN",
   "IN_PROGRESS",
   "FIXED",
   "VERIFIED",
   "CLOSED",
   "REOPENED",
-  "WONT_FIX_REQUESTED",
   "WONT_FIX",
   "DUPLICATE",
-  "REJECTED",
-  "SOFT_DELETED",
 ]);
 
 export const createBugSchema = z.object({
@@ -75,5 +70,12 @@ export const softDeleteBugSchema = z.object({
 });
 
 export const triageDecisionSchema = z.object({
-  decision: z.enum(["APPROVE", "DUPLICATE", "WONT_FIX", "REJECT"]),
+  decision: z.enum(["OPEN", "DUPLICATE", "WONT_FIX"]),
+});
+
+export const triageClassificationSchema = z.object({
+  priority: z.enum(["P1", "P2", "P3", "P4"]).optional(),
+  severity: z.enum(["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "TRIVIAL"]).optional(),
+}).refine((value) => Boolean(value.priority || value.severity), {
+  message: "At least one of priority or severity is required",
 });

@@ -53,6 +53,8 @@ model User {
   bugDeletionAudits BugDeletionAudit[] @relation("BugDeletionAudits")
 
   notifications Notification[]
+  createdProjects Project[] @relation("ProjectCreatedBy")
+  createdWebhookEndpoints WebhookEndpoint[] @relation("WebhookCreatedBy")
 
 }
 model RefreshToken {
@@ -114,12 +116,8 @@ enum AutomationStatus {
 
 
 model TestCase {
-  id          String   @id @default(uuid())
-  
-  // 👇 RELAXED: Removed '@unique'. Now it's just an optional string.
-  testCaseId  String?  
-  
-  // 👇 RELAXED: Removed '@db.VarChar(200)'. Now it accepts any length.
+  id          String   @id @default(uuid())
+  testCaseId  String?  
   title       String   
   
   description String
@@ -144,6 +142,8 @@ model TestCase {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdById Int
   createdBy   User     @relation(fields: [createdById], references: [id])
 
@@ -170,51 +170,34 @@ model TestStep {
   testCase   TestCase @relation(fields: [testCaseId], references: [id])
 
   createdAt DateTime @default(now())
-}
-// ADD THIS AT THE BOTTOM OF schema.prisma
+}
 
 model TestCaseHistory {
   id             String     @id @default(uuid())
   testCaseId     String
-  version        Int
-  
-  // Basic Info
+  version        Int
   title          String
   description    String?
-  module         String?
-  
-  // Classification
+  module         String?
   priority       Priority
   severity       Severity
   type           TestType
-  status         TestStatus
-  
-  // Execution Details (These were missing!)
+  status         TestStatus
   preConditions  String?
   testData       String?
   expectedResult String?
   postConditions String?    // <--- Added this as requested
-  environment    String?
-  
-  // Metadata
+  environment    String?
   changedAt      DateTime   @default(now())
-  changedBy      Int?
-  
-  // JSON Snapshot of steps
-  stepsSnapshot  Json?
-
-  // Relation
+  changedBy      Int?
+  stepsSnapshot  Json?
   testCase       TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
 }
 model TestCaseTemplate {
-  id          String   @id @default(uuid())
-
-  // Template identity
+  id          String   @id @default(uuid())
   name        String
   description String?
-  category    String   // Login, CRUD, API, etc.
-
-  // Snapshot fields
+  category    String   // Login, CRUD, API, etc.
   title       String
   priority    Priority
   severity    Severity
@@ -222,12 +205,12 @@ model TestCaseTemplate {
 
   preConditions String?
   testData      String?
-  environment   String?
-
-  // Steps stored as JSON snapshot
+  environment   String?
   stepsSnapshot Json
 
   createdAt   DateTime @default(now())
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdById Int
   createdBy   User     @relation(fields: [createdById], references: [id])
 
@@ -239,16 +222,12 @@ model TestSuite {
   name          String
   description   String?
   module        String?
-  
-  // Hierarchy (Parent / Child Suites)
+  projectId     String?
   parentSuiteId String?
   parentSuite   TestSuite?  @relation("SuiteHierarchy", fields: [parentSuiteId], references: [id])
-  childSuites   TestSuite[] @relation("SuiteHierarchy")
-
-  // Relations
+  childSuites   TestSuite[] @relation("SuiteHierarchy")
   testCases     TestSuiteTestCase[]
-
-  // Management
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   isArchived    Boolean  @default(false)
 
   createdAt     DateTime @default(now())
@@ -258,9 +237,7 @@ model TestSuite {
 model TestSuiteTestCase {
   id          String   @id @default(uuid())
   testSuiteId String
-  testCaseId  String
-
-  // Order of execution inside suite
+  testCaseId  String
   order       Int
 
   testSuite   TestSuite @relation(fields: [testSuiteId], references: [id])
@@ -296,6 +273,87 @@ enum EvidenceType {
   LOG
   HAR
 }
+enum MilestoneStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum ProjectEntityType {
+  TEST_CASE
+  TEST_SUITE
+  TEST_RUN
+  BUG
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  config      Json?
+  isArchived  Boolean  @default(false)
+  createdById Int?
+  createdBy   User?    @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+
+  customFields ProjectCustomField[]
+  milestones   Milestone[]
+  testCases    TestCase[]
+  testSuites   TestSuite[]
+  testRuns     TestRun[]
+  templates    TestCaseTemplate[]
+  bugs         Bug[]
+  webhookEndpoints WebhookEndpoint[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectCustomField {
+  id           String            @id @default(uuid())
+  projectId    String
+  entityType   ProjectEntityType
+  name         String
+  fieldType    CustomFieldType
+  required     Boolean           @default(false)
+  options      Json?
+  defaultValue String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, entityType, name])
+  @@index([projectId, entityType])
+}
+
+model Milestone {
+  id          String          @id @default(uuid())
+  projectId   String
+  name        String
+  description String?
+  status      MilestoneStatus @default(PLANNED)
+  startDate   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testRuns TestRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId, status])
+}
 model TestRun {
   id          String   @id @default(uuid())
   name        String
@@ -304,9 +362,13 @@ model TestRun {
 
   startDate   DateTime?
   endDate     DateTime?
+  projectId   String?
+  milestoneId String?
 
   createdById Int
   createdBy   User @relation(fields: [createdById], references: [id])
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
 
   testRunItems TestRunItem[]
 
@@ -330,10 +392,7 @@ model TestRunItem {
 
   totalTimeSeconds Int @default(0)
   pausedAt        DateTime?
-  accumulatedTime Int @default(0)
-
-
-  // Re-execution support
+  accumulatedTime Int @default(0)
   reExecutionOfId String?
   reExecutionOf   TestRunItem? @relation("ReExecution", fields: [reExecutionOfId], references: [id])
   reExecutions    TestRunItem[] @relation("ReExecution")
@@ -413,6 +472,7 @@ enum BugStatus {
 model Bug {
   id                String       @id @default(uuid())
   bugId             String       @unique
+  projectId         String?
   title             String
   description       String
   stepsToReproduce  String
@@ -438,6 +498,7 @@ model Bug {
   deletedAt         DateTime?
   deletionReason    String?
 
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignedTo  User? @relation("AssignedBugs", fields: [assignedToId], references: [id])
   createdBy   User  @relation("CreatedBugs", fields: [createdById], references: [id])
   comments    BugComment[]
@@ -499,6 +560,21 @@ enum NotificationType {
   BUG_COMMENTED
 }
 
+enum WebhookEventType {
+  BUG_CREATED
+  BUG_UPDATED
+  BUG_RESOLVED
+  BUG_DELETED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  FAILED
+  DEAD
+}
+
 model Notification {
   id          String   @id @default(uuid())
   userId      Int
@@ -508,5 +584,48 @@ model Notification {
   createdAt   DateTime @default(now())
 
   user        User     @relation(fields: [userId], references: [id])
+}
+
+model WebhookEndpoint {
+  id             String             @id @default(uuid())
+  name           String
+  url            String
+  isActive       Boolean            @default(true)
+  secret         String?
+  projectId      String?
+  createdById    Int?
+  eventTypes     WebhookEventType[]
+  priorityFilter BugPriority[]
+  maxRetries     Int                @default(5)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  project   Project?          @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User?             @relation("WebhookCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  deliveries WebhookDelivery[]
+
+  @@index([projectId, isActive])
+}
+
+model WebhookDelivery {
+  id             String                @id @default(uuid())
+  endpointId     String
+  bugId          String?
+  eventType      WebhookEventType
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  maxAttempts    Int
+  requestBody    Json
+  responseStatus Int?
+  lastError      String?
+  nextAttemptAt  DateTime              @default(now())
+  deliveredAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+  @@index([endpointId, createdAt])
 }
 

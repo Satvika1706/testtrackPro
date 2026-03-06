@@ -1,13 +1,36 @@
 export type AppRole = "TESTER" | "DEVELOPER" | "ADMIN" | "TRIAGE";
 
+const ACCESS_TOKEN_KEY = "token";
+const REFRESH_TOKEN_KEY = "refreshToken";
+
 export interface TokenUser {
   userId: number;
   email: string;
   role: AppRole;
 }
 
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setAuthTokens(accessToken: string, refreshToken?: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+}
+
+export function clearAuthTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
 export function getCurrentUser(): TokenUser | null {
-  const token = localStorage.getItem("token");
+  const token = getAccessToken();
   if (!token) return null;
 
   const parts = token.split(".");

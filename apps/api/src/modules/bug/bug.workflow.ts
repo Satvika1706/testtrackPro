@@ -1,46 +1,43 @@
-import { BugStatus, Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 
-export type WorkflowBugStatus = BugStatus | "WONT_FIX_REQUESTED";
+export type WorkflowBugStatus =
+  | "NEW"
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "FIXED"
+  | "VERIFIED"
+  | "CLOSED"
+  | "REOPENED"
+  | "DUPLICATE"
+  | "WONT_FIX";
 
 export const BUG_WORKFLOW_TRANSITIONS: Record<
   WorkflowBugStatus,
   WorkflowBugStatus[]
 > = {
-  NEW: ["TRIAGE_PENDING"],
-  TRIAGE_PENDING: ["TRIAGED", "DUPLICATE", "WONT_FIX"],
-  TRIAGED: ["OPEN"],
-  OPEN: ["IN_PROGRESS"],
-  IN_PROGRESS: ["FIXED", "WONT_FIX_REQUESTED"],
+  NEW: ["OPEN", "DUPLICATE", "WONT_FIX"],
+  OPEN: ["IN_PROGRESS", "WONT_FIX"],
+  IN_PROGRESS: ["FIXED"],
   FIXED: ["VERIFIED", "REOPENED"],
-  VERIFIED: ["CLOSED"],
+  VERIFIED: ["CLOSED", "REOPENED"],
   REOPENED: ["IN_PROGRESS"],
-  WONT_FIX_REQUESTED: ["WONT_FIX", "OPEN"],
   CLOSED: [],
   WONT_FIX: [],
   DUPLICATE: [],
-  REJECTED: [],
-  SOFT_DELETED: [],
 };
 
 const ROLE_ALLOWED_TARGETS: Record<Role, WorkflowBugStatus[]> = {
-  TESTER: ["VERIFIED", "REOPENED"],
-  DEVELOPER: [
-    "IN_PROGRESS",
-    "FIXED",
-    "WONT_FIX_REQUESTED",
-  ],
-  TRIAGE: ["TRIAGED", "WONT_FIX", "DUPLICATE", "OPEN"],
+  TESTER: ["VERIFIED", "REOPENED", "CLOSED"],
+  DEVELOPER: ["IN_PROGRESS", "FIXED", "WONT_FIX"],
+  TRIAGE: ["OPEN", "DUPLICATE", "WONT_FIX"],
   ADMIN: [
     "NEW",
-    "TRIAGE_PENDING",
-    "TRIAGED",
     "OPEN",
     "IN_PROGRESS",
     "FIXED",
     "VERIFIED",
     "CLOSED",
     "REOPENED",
-    "WONT_FIX_REQUESTED",
     "WONT_FIX",
     "DUPLICATE",
   ],

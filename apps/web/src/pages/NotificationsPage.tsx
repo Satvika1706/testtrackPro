@@ -21,9 +21,18 @@ const NotificationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const notificationList = useMemo(
-    () => notifications || [],
-    [notifications]
+  const notificationList = useMemo(() => {
+    const list = [...(notifications || [])];
+    list.sort((a, b) => {
+      if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    return list;
+  }, [notifications]);
+
+  const unreadCount = useMemo(
+    () => notificationList.filter((item) => !item.isRead).length,
+    [notificationList]
   );
 
   useEffect(() => {
@@ -70,6 +79,23 @@ const NotificationsPage = () => {
     }
   };
 
+  const handleMarkAsRead = async (item: NotificationItem) => {
+    if (item.isRead) return;
+    setError("");
+    try {
+      await markNotificationRead(item.id);
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === item.id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Failed to mark as read");
+    }
+  };
+
   return (
     <div className="notifications-page">
       <div className="page-header">
@@ -77,6 +103,14 @@ const NotificationsPage = () => {
         <p className="text-sm text-gray-600">
           Review updates related to your bugs and triage activity.
         </p>
+        <div className="notification-summary">
+          <span className="notification-summary-pill unread">
+            Unread: {unreadCount}
+          </span>
+          <span className="notification-summary-pill read">
+            Read: {notificationList.length - unreadCount}
+          </span>
+        </div>
       </div>
 
       {error ? (
@@ -102,6 +136,15 @@ const NotificationsPage = () => {
                 <div className="notification-title">
                   {formatNotificationType(item.type)}
                 </div>
+                <div className="notification-status-row">
+                  <span
+                    className={`notification-status-badge ${
+                      item.isRead ? "read" : "unread"
+                    }`}
+                  >
+                    {item.isRead ? "Read" : "Unread"}
+                  </span>
+                </div>
                 <div className="notification-meta-row">
                   <span className="notification-label">Bug ID</span>
                   <span className="notification-bugid">
@@ -116,6 +159,15 @@ const NotificationsPage = () => {
                 </div>
               </div>
               <div className="notification-actions">
+                {!item.isRead ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleMarkAsRead(item)}
+                  >
+                    Mark as Read
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="secondary"

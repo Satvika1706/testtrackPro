@@ -29,3 +29,9 @@ export const updateStepStatus = (
   api.patch(`/api/test-runs/steps/${stepId}/status`, {
     status
   });
+
+export const createReExecution = (id: string) =>
+  api.post(`/api/test-runs/items/${id}/re-execute`);
+
+export const getExecutionComparison = (id: string) =>
+  api.get(`/api/test-runs/items/${id}/comparison`);

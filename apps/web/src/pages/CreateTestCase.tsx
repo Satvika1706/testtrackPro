@@ -83,7 +83,7 @@ const CreateTestCase = () => {
             : [{ stepNumber: 1, action: "", expectedResult: "" }]
         );
       } catch {
-        // Keep empty form if template fetch fails.
+
       } finally {
         setTemplateLoading(false);
       }
@@ -131,8 +131,11 @@ const CreateTestCase = () => {
       const res = await api.post("/api/test-cases", payload);
 
       const newTestCaseId = res?.data?.id || "Generated";
-      alert(`Test case created successfully. ID: ${newTestCaseId}. Status: DRAFT`);
-      navigate("/test-cases");
+      navigate("/test-cases", {
+        state: {
+          successMessage: `Test case created successfully. ID: ${newTestCaseId}.`,
+        },
+      });
     } catch (err) {
       alert("Failed to create test case");
     }

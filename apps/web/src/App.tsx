@@ -29,6 +29,13 @@ import DeveloperPerformanceReportPage from "./pages/DeveloperPerformanceReportPa
 import TesterPerformanceReportPage from "./pages/TesterPerformanceReportPage";
 import ManageUsersPage from "./pages/ManageUsersPage";
 import ManageRolesPage from "./pages/ManageRolesPage";
+import ManageWebhooksPage from "./pages/ManageWebhooksPage";
+import AdminAuditLogsPage from "./pages/AdminAuditLogsPage";
+import AdminSystemSettingsPage from "./pages/AdminSystemSettingsPage";
+import AdminBackupManagementPage from "./pages/AdminBackupManagementPage";
+import GlobalSearchPage from "./pages/GlobalSearchPage";
+import ProjectManagementPage from "./pages/ProjectManagementPage";
+import { ProjectProvider } from "./context/ProjectContext";
 
 const TESTER_ONLY = ["TESTER"] as const;
 const ALL_ROLES = ["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"] as const;
@@ -43,11 +50,20 @@ const DashboardEntry = () => {
   return <Dashboard />;
 };
 
+const AppFallback = () => {
+  const user = getCurrentUser();
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return <Navigate to={user.role === "ADMIN" ? "/admin/users" : "/dashboard"} replace />;
+};
+
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
+    <ProjectProvider>
+      <BrowserRouter>
+        <Routes>
+        
         <Route path="/" element={<Register />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
@@ -239,10 +255,62 @@ function App() {
               </RoleGuard>
             )}
           />
+          <Route
+            path="/admin/webhooks"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <ManageWebhooksPage />
+              </RoleGuard>
+            )}
+          />
+          <Route
+            path="/admin/audit-logs"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <AdminAuditLogsPage />
+              </RoleGuard>
+            )}
+          />
+          <Route path="/admin/auditlogs" element={<Navigate to="/admin/audit-logs" replace />} />
+          <Route
+            path="/admin/system-settings"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <AdminSystemSettingsPage />
+              </RoleGuard>
+            )}
+          />
+          <Route path="/admin/system-config" element={<Navigate to="/admin/system-settings" replace />} />
+          <Route
+            path="/admin/backups"
+            element={(
+              <RoleGuard allowedRoles={[...ADMIN_ONLY]} redirectTo="/reports">
+                <AdminBackupManagementPage />
+              </RoleGuard>
+            )}
+          />
+          <Route path="/admin/backup-management" element={<Navigate to="/admin/backups" replace />} />
+          <Route
+            path="/projects"
+            element={(
+              <RoleGuard allowedRoles={["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"]} redirectTo="/dashboard">
+                <ProjectManagementPage />
+              </RoleGuard>
+            )}
+          />
+          <Route
+            path="/search"
+            element={(
+              <RoleGuard allowedRoles={[...ALL_ROLES]} redirectTo="/login">
+                <GlobalSearchPage />
+              </RoleGuard>
+            )}
+          />
         </Route>
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+        <Route path="*" element={<AppFallback />} />
+        </Routes>
+      </BrowserRouter>
+    </ProjectProvider>
   );
 }
 

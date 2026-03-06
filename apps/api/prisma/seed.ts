@@ -12,13 +12,7 @@ async function main() {
       role: "ADMIN" as const,
       isEmailVerified: true,
     },
-    {
-      email: "tester21@test.com",
-      username: "tester21",
-      plainPassword: "password123",
-      role: "TESTER" as const,
-      isEmailVerified: true,
-    },
+   
   ];
 
   for (const user of usersToSeed) {

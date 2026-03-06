@@ -67,7 +67,7 @@ body,
 body {
   margin: 0;
   font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 17px;
+  font-size: 16px;
   color: var(--text-primary);
   background: radial-gradient(circle at top right, #e8f1ff 0%, transparent 30%), var(--background-color);
   line-height: 1.6;
@@ -800,7 +800,6 @@ tbody tr:hover td {
   margin-bottom: var(--space-3);
 }
 
-/* Version history sidebar */
 .version-overlay {
   position: fixed;
   inset: 0;
@@ -913,7 +912,6 @@ tbody tr:hover td {
   }
 }
 
-/* Utility classes used throughout the app */
 .w-full { width: 100%; }
 .w-40 { width: 10rem; }
 .w-8 { width: 2rem; }
@@ -1113,7 +1111,6 @@ tbody tr:hover td {
   }
 }
 
-
 .checkbox-input {
   width: auto;
 }
@@ -1123,4 +1120,128 @@ tbody tr:hover td {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
+}
+
+.notifications-page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.notification-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.notification-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.notification-summary-pill.unread {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.notification-summary-pill.read {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.notification-state {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: #fff;
+  color: var(--text-secondary);
+}
+
+.notifications-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.notification-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: #fff;
+  padding: var(--space-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.notification-card.unread {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  box-shadow: 0 0 0 1px rgba(147, 197, 253, 0.35);
+}
+
+.notification-details {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.notification-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.notification-status-row {
+  display: flex;
+}
+
+.notification-status-badge {
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+}
+
+.notification-status-badge.unread {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.notification-status-badge.read {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.notification-meta-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.notification-label {
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 58px;
+}
+
+.notification-bugid,
+.notification-date {
+  color: var(--text-secondary);
+}
+
+.notification-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .notification-card {
+    flex-direction: column;
+  }
 }

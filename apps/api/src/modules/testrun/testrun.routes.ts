@@ -14,24 +14,19 @@ import {
   getExecutionSteps
 } from "./testrun.controller";
 import { updateExecutionStepStatus } from "./testrun.controller";
+import { createReExecution, getExecutionComparison } from "./testrun.controller";
 import { authorizeRoles } from "../../middleware/role.middleware";
+import { patchRunMilestone } from "../projects/project.controller";
 
 const router = Router();
 const EXECUTION_ROLES = ["TESTER"];
 
-/**
- * @route   POST /api/test-runs
- * @desc    Create a new test run
- * @access  Private 
- */
+
 router.post("/", requireAuth, authorizeRoles(["TESTER"]), createTestRun);
 router.get("/", requireAuth, authorizeRoles(["TESTER"]), getAllTestRuns);
 router.get("/:id", requireAuth, authorizeRoles(["TESTER"]), getTestRun);
 
-
-
 router.post("/items/:id/start", requireAuth, authorizeRoles(EXECUTION_ROLES), startExecution);
-
 
 router.post("/items/:id/complete", requireAuth, authorizeRoles(EXECUTION_ROLES), completeExecution);
 router.post("/items/:id/pause", requireAuth, authorizeRoles(EXECUTION_ROLES), pauseExecution);
@@ -50,11 +45,24 @@ router.patch(
 
 router.get("/:id/progress", requireAuth, authorizeRoles(["TESTER"]), getRunProgress);
 router.get("/:id/items", requireAuth, authorizeRoles(["TESTER"]), getTestRunItems);
+router.patch("/:id/milestone", requireAuth, authorizeRoles(["TESTER"]), patchRunMilestone);
 router.patch(
   "/steps/:id/status",
   requireAuth,
   authorizeRoles(EXECUTION_ROLES),
   updateExecutionStepStatus
+);
+router.post(
+  "/items/:id/re-execute",
+  requireAuth,
+  authorizeRoles(EXECUTION_ROLES),
+  createReExecution
+);
+router.get(
+  "/items/:id/comparison",
+  requireAuth,
+  authorizeRoles(["TESTER"]),
+  getExecutionComparison
 );
 
 export default router;

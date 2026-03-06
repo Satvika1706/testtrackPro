@@ -7,26 +7,30 @@ import {
   editBugComment,
   getBugById,
   getBugComments,
+  getAssignableDevelopers,
+  getMentionableUsers,
   runDeveloperAction,
   triageBug,
+  updateTriageClassification,
   updateBugStatus,
+  type AssignableDeveloper,
   type BugComment,
   type BugItem,
+  type BugPriority,
+  type BugSeverity,
   type BugStatus,
+  type MentionableUser,
 } from "../api/bug.api";
 import { getCurrentUser } from "../utils/auth";
 
 const STATUS_OPTIONS: BugStatus[] = [
   "NEW",
-  "TRIAGE_PENDING",
-  "TRIAGED",
   "OPEN",
   "IN_PROGRESS",
   "FIXED",
   "VERIFIED",
   "CLOSED",
   "REOPENED",
-  "WONT_FIX_REQUESTED",
   "WONT_FIX",
   "DUPLICATE",
 ];
@@ -44,6 +48,9 @@ const BugDetailsPage = () => {
   const [error, setError] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<BugStatus>("OPEN");
   const [assignedToId, setAssignedToId] = useState("");
+  const [assignableDevelopers, setAssignableDevelopers] = useState<AssignableDeveloper[]>([]);
+  const [triagePriority, setTriagePriority] = useState<BugPriority>("P2");
+  const [triageSeverity, setTriageSeverity] = useState<BugSeverity>("MAJOR");
 
   const [fixNotes, setFixNotes] = useState("");
   const [commitRef, setCommitRef] = useState("");
@@ -51,6 +58,9 @@ const BugDetailsPage = () => {
   const [wontFixReason, setWontFixReason] = useState("");
 
   const [newComment, setNewComment] = useState("");
+  const [commentCursor, setCommentCursor] = useState(0);
+  const [mentionSuggestions, setMentionSuggestions] = useState<MentionableUser[]>([]);
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
   const [replyToCommentId, setReplyToCommentId] = useState<string | undefined>(undefined);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
@@ -70,6 +80,8 @@ const BugDetailsPage = () => {
       setCommitRef(bugRes.data.fixCommitRef || "");
       setResolutionSummary(bugRes.data.resolutionSummary || "");
       setWontFixReason(bugRes.data.wontFixReason || "");
+      setTriagePriority(bugRes.data.priority);
+      setTriageSeverity(bugRes.data.severity);
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed to load bug");
     } finally {
@@ -80,6 +92,21 @@ const BugDetailsPage = () => {
   useEffect(() => {
     void loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (user?.role !== "TRIAGE" && user?.role !== "ADMIN") return;
+
+    const loadDevelopers = async () => {
+      try {
+        const res = await getAssignableDevelopers("");
+        setAssignableDevelopers(res.data || []);
+      } catch {
+        setAssignableDevelopers([]);
+      }
+    };
+
+    void loadDevelopers();
+  }, [user?.role]);
 
   const handleStatusUpdate = async () => {
     if (!id) return;
@@ -95,7 +122,7 @@ const BugDetailsPage = () => {
     }
   };
 
-  const handleTriage = async (decision: "APPROVE" | "DUPLICATE" | "WONT_FIX") => {
+  const handleTriage = async (decision: "OPEN" | "DUPLICATE" | "WONT_FIX") => {
     if (!id) return;
     setBusy(true);
     setError("");
@@ -104,6 +131,23 @@ const BugDetailsPage = () => {
       await loadData();
     } catch (err: any) {
       setError(err.response?.data?.error || "Failed triage action");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleTriageClassification = async () => {
+    if (!id) return;
+    setBusy(true);
+    setError("");
+    try {
+      await updateTriageClassification(id, {
+        priority: triagePriority,
+        severity: triageSeverity,
+      });
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to update priority/severity");
     } finally {
       setBusy(false);
     }
@@ -171,6 +215,46 @@ const BugDetailsPage = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleCommentChange = (value: string, cursor: number) => {
+    setNewComment(value);
+    setCommentCursor(cursor);
+
+    const beforeCursor = value.slice(0, cursor);
+    const mentionMatch = beforeCursor.match(/(?:^|\s)@([a-zA-Z0-9._-]{0,30})$/);
+
+    if (!mentionMatch) {
+      setShowMentionSuggestions(false);
+      setMentionSuggestions([]);
+      return;
+    }
+
+    const query = mentionMatch[1].toLowerCase();
+    void (async () => {
+      try {
+        const res = await getMentionableUsers(query);
+        const suggestions = (res.data || []).slice(0, 10);
+        setMentionSuggestions(suggestions);
+        setShowMentionSuggestions(suggestions.length > 0);
+      } catch {
+        setMentionSuggestions([]);
+        setShowMentionSuggestions(false);
+      }
+    })();
+  };
+
+  const insertMention = (item: MentionableUser) => {
+    const beforeCursor = newComment.slice(0, commentCursor);
+    const afterCursor = newComment.slice(commentCursor);
+    const replacedBefore = beforeCursor.replace(
+      /(^|\s)@([a-zA-Z0-9._-]{0,30})$/,
+      `$1@${item.mentionToken} `
+    );
+
+    setNewComment(`${replacedBefore}${afterCursor}`);
+    setShowMentionSuggestions(false);
+    setMentionSuggestions([]);
   };
 
   const handleUpdateComment = async () => {
@@ -326,20 +410,59 @@ const BugDetailsPage = () => {
 
       {(user?.role === "TRIAGE" || user?.role === "ADMIN") && (
         <div className="card mb-6">
-          <h3>Triage and Assignment</h3>
+          <h3>Triage Review and Assignment</h3>
           <div className="flex gap-2 mb-4">
-            <button onClick={() => void handleTriage("APPROVE")} disabled={busy}>Approve</button>
-            <button className="secondary" onClick={() => void handleTriage("DUPLICATE")} disabled={busy}>Mark Duplicate</button>
-            <button className="danger" onClick={() => void handleTriage("WONT_FIX")} disabled={busy}>Mark Won't Fix</button>
+            <button
+              onClick={() => void handleTriage("OPEN")}
+              disabled={busy || bug.status !== "NEW"}
+            >
+              Validate as Open
+            </button>
+            <button
+              className="secondary"
+              onClick={() => void handleTriage("DUPLICATE")}
+              disabled={busy || bug.status !== "NEW"}
+            >
+              Mark Duplicate
+            </button>
+            <button
+              className="danger"
+              onClick={() => void handleTriage("WONT_FIX")}
+              disabled={busy || !["NEW", "OPEN"].includes(bug.status)}
+            >
+              Mark Won't Fix
+            </button>
+          </div>
+          <div className="flex gap-2 items-center mb-4">
+            <select value={triagePriority} onChange={(e) => setTriagePriority(e.target.value as BugPriority)}>
+              <option value="P1">P1</option>
+              <option value="P2">P2</option>
+              <option value="P3">P3</option>
+              <option value="P4">P4</option>
+            </select>
+            <select value={triageSeverity} onChange={(e) => setTriageSeverity(e.target.value as BugSeverity)}>
+              <option value="BLOCKER">BLOCKER</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="MAJOR">MAJOR</option>
+              <option value="MINOR">MINOR</option>
+              <option value="TRIVIAL">TRIVIAL</option>
+            </select>
+            <button onClick={() => void handleTriageClassification()} disabled={busy}>
+              Update Priority/Severity
+            </button>
           </div>
           <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              min={1}
+            <select
               value={assignedToId}
               onChange={(e) => setAssignedToId(e.target.value)}
-              placeholder="Developer user ID"
-            />
+            >
+              <option value="">Select developer</option>
+              {assignableDevelopers.map((developer) => (
+                <option key={developer.id} value={String(developer.id)}>
+                  {developer.username ? `${developer.username} - ` : ""}{developer.email}
+                </option>
+              ))}
+            </select>
             <button onClick={() => void handleAssign()} disabled={busy || !assignedToId}>Assign Bug</button>
           </div>
         </div>
@@ -391,10 +514,40 @@ const BugDetailsPage = () => {
 
         <textarea
           value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
+          onChange={(e) => handleCommentChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
           rows={3}
-          placeholder="Add comment. Use @email or @emailPrefix for mention."
+          placeholder="Add comment. Type @ to mention by username/email."
         />
+        {showMentionSuggestions && (
+          <div
+            style={{
+              marginTop: 8,
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--radius-md)",
+              background: "#fff",
+              overflow: "hidden",
+            }}
+          >
+            {mentionSuggestions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="secondary"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  border: "none",
+                  borderBottom: "1px solid var(--border-color)",
+                  borderRadius: 0,
+                }}
+                onClick={() => insertMention(item)}
+              >
+                @{item.mentionToken} ({item.role}) - {item.email}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mt-4 mb-6">
           <button onClick={() => void handleAddComment()} disabled={busy || !newComment.trim()}>Post Comment</button>
         </div>

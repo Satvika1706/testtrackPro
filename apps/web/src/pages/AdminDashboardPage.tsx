@@ -3,29 +3,39 @@ import { Box, Button, Paper, Stack, Typography } from "@mui/material";
 
 const adminModules = [
   {
-    title: "Users",
-    description: "Create users, update roles, activate/deactivate accounts, and verify access.",
+    title: "Manage Users",
+    description: "Create, edit, and deactivate user accounts.",
     to: "/admin/users",
   },
   {
-    title: "Role Permissions",
-    description: "Review role distribution and assign role changes for platform governance.",
+    title: "Manage Projects",
+    description: "Create and configure projects.",
+    to: "/projects",
+  },
+  {
+    title: "Manage Roles",
+    description: "Customize role permissions.",
     to: "/admin/roles",
   },
   {
-    title: "Audit Logs",
-    description: "Track critical platform activities and security-relevant administrative actions.",
+    title: "Manage Webhooks",
+    description: "Configure outbound bug lifecycle webhook integrations.",
+    to: "/admin/webhooks",
+  },
+  {
+    title: "View Audit Logs",
+    description: "Access complete system audit trail.",
     to: "/admin/audit-logs",
   },
   {
-    title: "System Settings",
-    description: "Configure global product controls, policy toggles, and maintenance preferences.",
+    title: "System Configuration",
+    description: "Configure system-wide settings.",
     to: "/admin/system-settings",
   },
   {
-    title: "Reports",
-    description: "Open analytics hub for cross-functional visibility and operational reporting.",
-    to: "/reports",
+    title: "Backup Management",
+    description: "Trigger and manage data backups.",
+    to: "/admin/backups",
   },
 ];
 
@@ -36,7 +46,7 @@ const AdminDashboardPage = () => (
         Admin Dashboard
       </Typography>
       <Typography color="text.secondary">
-        Central control panel for users, permissions, auditability, settings, and reports.
+        Central control panel for core administration modules.
       </Typography>
     </Stack>
 

@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -25,6 +29,8 @@ const TestSuites = () => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [module, setModule] = useState("");
+  const [search, setSearch] = useState("");
+  const [moduleFilter, setModuleFilter] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -66,6 +72,30 @@ const TestSuites = () => {
       alert("Failed to create suite");
     }
   };
+
+  const moduleOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          suites
+            .map((suite) => (suite.module || "").trim())
+            .filter(Boolean)
+        )
+      ).sort(),
+    [suites]
+  );
+
+  const filteredSuites = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return suites.filter((suite) => {
+      if (moduleFilter && (suite.module || "") !== moduleFilter) return false;
+      if (q) {
+        const haystack = `${suite.name} ${suite.description || ""} ${suite.module || ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [suites, search, moduleFilter]);
 
   if (loading) {
     return (
@@ -129,13 +159,49 @@ const TestSuites = () => {
         </Paper>
       ) : null}
 
-      {suites.length === 0 ? (
+      <Paper sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Search suites by name, description, module..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Module</InputLabel>
+            <Select
+              label="Module"
+              value={moduleFilter}
+              onChange={(e) => setModuleFilter(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              {moduleOptions.map((m) => (
+                <MenuItem key={m} value={m}>
+                  {m}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setSearch("");
+              setModuleFilter("");
+            }}
+          >
+            Reset
+          </Button>
+        </Stack>
+      </Paper>
+
+      {filteredSuites.length === 0 ? (
         <Paper sx={{ p: 4, borderRadius: 3 }}>
-          <Typography color="text.secondary">No test suites available.</Typography>
+          <Typography color="text.secondary">No test suites match your filters.</Typography>
         </Paper>
       ) : (
         <Stack spacing={2}>
-          {suites.map((suite) => (
+          {filteredSuites.map((suite) => (
             <Paper
               key={suite.id}
               variant="outlined"

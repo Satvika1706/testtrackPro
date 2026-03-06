@@ -5,7 +5,7 @@ import {
   disconnectNotificationSocket,
   type NotificationPayload,
 } from "../realtime/notifications";
-import { getCurrentUser } from "../utils/auth";
+import { clearAuthTokens, getCurrentUser } from "../utils/auth";
 import {
   getNotifications,
   type NotificationItem,
@@ -15,17 +15,23 @@ import {
   Avatar,
   Box,
   Button,
+  Collapse,
   CssBaseline,
   Divider,
   Drawer,
+  FormControl,
+  InputLabel,
   List,
   ListItemButton,
   ListItemText,
+  MenuItem,
+  Select,
   Snackbar,
   ThemeProvider,
   Typography,
   createTheme,
 } from "@mui/material";
+import { useProjectContext } from "../context/ProjectContext";
 
 const drawerWidth = 280;
 
@@ -54,45 +60,45 @@ const buildDashboardTheme = (mode: "light" | "dark") => createTheme({
     },
   },
   typography: {
-    fontSize: 17,
+    fontSize: 14,
     fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
     h6: {
-      fontSize: "1.75rem",
+      fontSize: "1.25rem",
       fontWeight: 800,
     },
     body1: {
-      fontSize: "1.43rem",
-    },
-    body2: {
       fontSize: "1rem",
     },
+    body2: {
+      fontSize: "0.875rem",
+    },
     caption: {
-      fontSize: "1.2rem",
+      fontSize: "0.75rem",
     },
     button: {
       textTransform: "none",
       fontWeight: 700,
-      fontSize: "1.02rem",
+      fontSize: "0.9rem",
     },
   },
   components: {
     MuiTableCell: {
       styleOverrides: {
         head: {
-          fontSize: "0.94rem",
+          fontSize: "0.8rem",
           fontWeight: 700,
           color: "#334155",
           letterSpacing: "0.02em",
         },
         body: {
-          fontSize: "1rem",
+          fontSize: "0.875rem",
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          fontSize: "0.98rem",
+          fontSize: "0.82rem",
           fontWeight: 600,
         },
       },
@@ -100,7 +106,7 @@ const buildDashboardTheme = (mode: "light" | "dark") => createTheme({
     MuiListItemText: {
       styleOverrides: {
         primary: {
-          fontSize: "1.06rem",
+          fontSize: "0.9rem",
           fontWeight: 600,
         },
       },
@@ -153,12 +159,35 @@ const DashboardLayout: React.FC = () => {
   const [themeMode, setThemeMode] = useState<"light" | "dark">(
     () => (localStorage.getItem("themeMode") as "light" | "dark") || "light"
   );
+  const { projects, activeProjectId, setActiveProjectId, refreshProjects, loading, loadError } = useProjectContext();
+  const [testMgmtOpen, setTestMgmtOpen] = useState(
+    location.pathname.startsWith("/test-") ||
+      location.pathname === "/templates" ||
+      location.pathname.startsWith("/projects")
+  );
 
   const user = useMemo(() => getCurrentUser(), []);
   const dashboardTheme = useMemo(() => buildDashboardTheme(themeMode), [themeMode]);
 
   const navSections = useMemo(() => {
     if (!user) return [];
+
+    if (user.role === "ADMIN") {
+      return [
+        {
+          title: "ADMIN",
+          items: [
+            { to: "/admin/users", label: "Manage Users", end: false },
+            { to: "/projects", label: "Manage Projects", end: false },
+            { to: "/admin/roles", label: "Manage Roles", end: false },
+            { to: "/admin/webhooks", label: "Manage Webhooks", end: false },
+            { to: "/admin/audit-logs", label: "View Audit Logs", end: false },
+            { to: "/admin/system-settings", label: "System Configuration", end: false },
+            { to: "/admin/backups", label: "Backup Management", end: false },
+          ],
+        },
+      ];
+    }
 
     const main = [{ to: "/dashboard", label: "\uD83C\uDFE0 Dashboard", end: true }];
 
@@ -167,29 +196,23 @@ const DashboardLayout: React.FC = () => {
           { to: "/test-cases", label: "\uD83D\uDCC4 Test Cases", end: false },
           { to: "/test-suites", label: "\uD83D\uDDD2 Test Suites", end: false },
           { to: "/test-runs", label: "\u25B6 Test Runs", end: false },
-          { to: "/templates", label: "\uD83D\uDCD1 Templates", end: false },
         ]
       : [];
 
     const defects = [{ to: "/bugs", label: "\uD83D\uDC1E Bugs", end: false }];
+    const projectsNav =
+      user.role === "TESTER" || user.role === "DEVELOPER" || user.role === "TRIAGE"
+        ? [{ to: "/projects", label: "\u2699 Projects", end: false }]
+        : [];
     const insights = [{ to: "/reports", label: "\uD83D\uDCCA Reports", end: false }];
 
     const sections = [
       { title: "MAIN", items: main },
       { title: "TEST MANAGEMENT", items: testManagement },
       { title: "DEFECTS", items: defects },
+      { title: "PROJECTS", items: projectsNav },
       { title: "INSIGHTS", items: insights },
     ].filter((section) => section.items.length > 0);
-
-    if (user.role === "ADMIN") {
-      sections.push({
-        title: "ADMIN",
-        items: [
-          { to: "/admin/users", label: "Manage Users", end: false },
-          { to: "/admin/roles", label: "Manage Roles", end: false },
-        ],
-      });
-    }
 
     return sections;
   }, [user]);
@@ -231,9 +254,19 @@ const DashboardLayout: React.FC = () => {
     document.documentElement.setAttribute("data-theme", themeMode);
   }, [themeMode]);
 
+  useEffect(() => {
+    if (
+      location.pathname.startsWith("/test-") ||
+      location.pathname === "/templates" ||
+      location.pathname.startsWith("/projects")
+    ) {
+      setTestMgmtOpen(true);
+    }
+  }, [location.pathname]);
+
   const handleLogout = () => {
     disconnectNotificationSocket();
-    localStorage.removeItem("token");
+    clearAuthTokens();
     navigate("/login");
   };
 
@@ -283,6 +316,41 @@ const DashboardLayout: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               {user?.email}
             </Typography>
+            <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+              <InputLabel id="active-project-label">Project</InputLabel>
+              <Select
+                labelId="active-project-label"
+                label="Project"
+                value={projects.length ? activeProjectId : ""}
+                onChange={(e) => {
+                  const nextProjectId = e.target.value;
+                  setActiveProjectId(nextProjectId);
+                }}
+                disabled={!projects.length}
+              >
+                {projects.length ? (
+                  projects.map((project) => (
+                    <MenuItem key={project.id} value={project.id}>
+                      {project.name}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem value="" disabled>
+                    {loading ? "Loading projects..." : "No projects available"}
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>
+            {loadError ? (
+              <Button
+                variant="text"
+                size="small"
+                sx={{ mt: 0.5, px: 0.5, justifyContent: "flex-start" }}
+                onClick={() => void refreshProjects()}
+              >
+                Retry loading projects
+              </Button>
+            ) : null}
           </Box>
 
           <Divider sx={{ my: 2 }} />
@@ -302,25 +370,61 @@ const DashboardLayout: React.FC = () => {
                   {section.title}
                 </Typography>
 
-                {section.items.map((item) => (
-                  <ListItemButton
-                    key={item.to}
-                    component={NavLink}
-                    to={item.to}
-                    end={item.end}
-                    sx={{
-                      borderRadius: 2,
-                      mt: 0.45,
-                      mb: 0.2,
-                      "&.active": {
-                        backgroundColor: "primary.main",
-                        color: "#fff",
-                      },
-                    }}
-                  >
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                ))}
+                {section.title === "TEST MANAGEMENT" ? (
+                  <>
+                    <ListItemButton
+                      onClick={() => setTestMgmtOpen((prev) => !prev)}
+                      sx={{ borderRadius: 2, mt: 0.45, mb: 0.2 }}
+                    >
+                      <ListItemText
+                        primary={`\uD83D\uDCC2 Test Management ${testMgmtOpen ? "\u25B2" : "\u25BC"}`}
+                      />
+                    </ListItemButton>
+                    <Collapse in={testMgmtOpen} timeout="auto" unmountOnExit>
+                      <Box sx={{ pl: 1 }}>
+                        {section.items.map((item) => (
+                          <ListItemButton
+                            key={item.to}
+                            component={NavLink}
+                            to={item.to}
+                            end={item.end}
+                            sx={{
+                              borderRadius: 2,
+                              mt: 0.45,
+                              mb: 0.2,
+                              "&.active": {
+                                backgroundColor: "primary.main",
+                                color: "#fff",
+                              },
+                            }}
+                          >
+                            <ListItemText primary={item.label} />
+                          </ListItemButton>
+                        ))}
+                      </Box>
+                    </Collapse>
+                  </>
+                ) : (
+                  section.items.map((item) => (
+                    <ListItemButton
+                      key={item.to}
+                      component={NavLink}
+                      to={item.to}
+                      end={item.end}
+                      sx={{
+                        borderRadius: 2,
+                        mt: 0.45,
+                        mb: 0.2,
+                        "&.active": {
+                          backgroundColor: "primary.main",
+                          color: "#fff",
+                        },
+                      }}
+                    >
+                      <ListItemText primary={item.label} />
+                    </ListItemButton>
+                  ))
+                )}
               </Box>
             ))}
           </List>
@@ -375,6 +479,7 @@ const DashboardLayout: React.FC = () => {
           </Box>
 
           <Outlet
+            key={activeProjectId || "no-project"}
             context={{
               notifications,
               setNotifications,

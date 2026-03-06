@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -27,11 +27,18 @@ import { getAllTestRuns, createTestRun } from "../api/testrun.api";
 import { getCurrentUser } from "../utils/auth";
 import { getTestCases } from "../api/testcases.api";
 import api from "../api/axios";
+import { getActiveProjectId } from "../utils/project";
+import { getProjectMilestones, type Milestone } from "../api/projects.api";
 
 interface TestRun {
   id: string;
   name: string;
   status: string;
+  milestone?: {
+    id: string;
+    name: string;
+    status: string;
+  } | null;
   createdAt: string;
   createdBy: {
     email: string;
@@ -75,8 +82,12 @@ const TestRunListPage = () => {
   const [suiteCases, setSuiteCases] = useState<TestCase[]>([]);
   const [suiteLoading, setSuiteLoading] = useState(false);
   const [newRunName, setNewRunName] = useState("");
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState("");
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [selectedCaseIds, setSelectedCaseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -107,6 +118,13 @@ const TestRunListPage = () => {
       ]);
       setTestCases(caseRes.data || caseRes);
       setSuites((suiteRes.data || []) as TestSuite[]);
+      const activeProjectId = getActiveProjectId();
+      if (activeProjectId) {
+        const milestoneRows = await getProjectMilestones(activeProjectId);
+        setMilestones(milestoneRows);
+      } else {
+        setMilestones([]);
+      }
     } catch (err) {
       console.error("Failed to fetch test cases/suites", err);
     }
@@ -127,12 +145,14 @@ const TestRunListPage = () => {
       await createTestRun({
         name: newRunName,
         testCaseIds: selectedCaseIds,
+        milestoneId: selectedMilestoneId || undefined,
       });
       setIsCreating(false);
       setNewRunName("");
       setSelectedCaseIds([]);
       setSelectedSuiteId("");
       setSuiteCases([]);
+      setSelectedMilestoneId("");
       void fetchRuns();
     } catch (err) {
       console.error("Failed to create test run", err);
@@ -176,6 +196,23 @@ const TestRunListPage = () => {
         return "default";
     }
   };
+
+  const statusOptions = useMemo(
+    () => Array.from(new Set(runs.map((run) => run.status))).sort(),
+    [runs]
+  );
+
+  const filteredRuns = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return runs.filter((run) => {
+      if (statusFilter && run.status !== statusFilter) return false;
+      if (q) {
+        const text = `${run.name} ${run.createdBy.email}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [runs, search, statusFilter]);
 
   if (loading) {
     return (
@@ -241,6 +278,23 @@ const TestRunListPage = () => {
                 {suites.map((suite) => (
                   <MenuItem key={suite.id} value={suite.id}>
                     {suite.name}{suite.module ? ` (${suite.module})` : ""}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel id="milestone-select-label">Milestone (optional)</InputLabel>
+              <Select
+                labelId="milestone-select-label"
+                label="Milestone (optional)"
+                value={selectedMilestoneId}
+                onChange={(e) => setSelectedMilestoneId(e.target.value)}
+              >
+                <MenuItem value="">None</MenuItem>
+                {milestones.map((milestone) => (
+                  <MenuItem key={milestone.id} value={milestone.id}>
+                    {milestone.name} ({milestone.status})
                   </MenuItem>
                 ))}
               </Select>
@@ -325,6 +379,7 @@ const TestRunListPage = () => {
                   setSelectedSuiteId("");
                   setSuiteCases([]);
                   setSelectedCaseIds([]);
+                  setSelectedMilestoneId("");
                 }}
               >
                 Cancel
@@ -339,6 +394,50 @@ const TestRunListPage = () => {
 
       <Paper
         sx={{
+          p: 2,
+          borderRadius: 3,
+          mb: 2,
+          backgroundColor: isDark ? "#1e293b" : "#ffffff",
+          border: isDark ? "1px solid #334155" : "1px solid #e2e8f0",
+        }}
+      >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Search runs by name/creator..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="">All</MenuItem>
+              {statusOptions.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setSearch("");
+              setStatusFilter("");
+            }}
+          >
+            Reset
+          </Button>
+        </Stack>
+      </Paper>
+
+      <Paper
+        sx={{
           borderRadius: 3,
           overflowX: "auto",
           backgroundColor: isDark ? "#1e293b" : "#ffffff",
@@ -350,22 +449,23 @@ const TestRunListPage = () => {
             <TableRow>
               <TableCell>Name</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Milestone</TableCell>
               <TableCell>Created By</TableCell>
               <TableCell>Total Cases</TableCell>
               <TableCell>Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {runs.length === 0 ? (
+            {filteredRuns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography color="text.secondary" sx={{ py: 2 }}>
                     No test runs found.
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              runs.map((run) => (
+              filteredRuns.map((run) => (
                 <TableRow key={run.id} hover>
                   <TableCell>{run.name}</TableCell>
                   <TableCell>
@@ -376,6 +476,7 @@ const TestRunListPage = () => {
                       color={getStatusColor(run.status)}
                     />
                   </TableCell>
+                  <TableCell>{run.milestone?.name || "-"}</TableCell>
                   <TableCell>{run.createdBy.email}</TableCell>
                   <TableCell>{run._count.testRunItems}</TableCell>
                   <TableCell>

@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  startExecution,
-  pauseExecution,
-  resumeExecution,
   completeExecution,
+  getExecutionComparison,
   getExecutionSteps,
   getTestRunItem,
+  pauseExecution,
+  resumeExecution,
+  startExecution,
+  updateStepStatus,
 } from "../api/execution.api";
-import { updateStepStatus } from "../api/execution.api";
 import { createBugFromExecution } from "../api/bug.api";
 import { getCurrentUser } from "../utils/auth";
 
@@ -27,8 +28,8 @@ interface TestRunItem {
   pausedAt: string | null;
   accumulatedTime: number;
   totalTimeSeconds: number;
+  reExecutionOfId?: string | null;
 }
-
 
 const ExecutionPage = () => {
   const { id } = useParams();
@@ -40,23 +41,31 @@ const ExecutionPage = () => {
   const [steps, setSteps] = useState<Step[]>([]);
   const [displayTime, setDisplayTime] = useState(0);
   const [error, setError] = useState("");
+  const [comparison, setComparison] = useState<any>(null);
 
-  // 🔥 Fetch execution metadata + steps
   const fetchData = async () => {
     if (!id) return;
     try {
       const itemRes = await getTestRunItem(id);
-      setItem(itemRes.data.data);
+      const fetchedItem = itemRes.data.data as TestRunItem;
+      setItem(fetchedItem);
 
       const stepRes = await getExecutionSteps(id);
       setSteps(stepRes.data.data);
+
+      if (fetchedItem?.reExecutionOfId) {
+        const compareRes = await getExecutionComparison(id);
+        setComparison(compareRes.data.data);
+      } else {
+        setComparison(null);
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to fetch execution data");
     }
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [id]);
 
   useEffect(() => {
@@ -71,35 +80,29 @@ const ExecutionPage = () => {
         if (!startedAt) return;
 
         const started = new Date(startedAt).getTime();
-
-
-        const current =
-          item.accumulatedTime +
-          Math.floor((now - started) / 1000);
+        const current = item.accumulatedTime + Math.floor((now - started) / 1000);
 
         setDisplayTime(current);
       }, 1000);
-    }
-    else if (item.status === "PASSED" || item.status === "FAILED") {
+    } else if (item.status === "PASSED" || item.status === "FAILED") {
       setDisplayTime(item.totalTimeSeconds);
-    }
-    else {
+    } else {
       setDisplayTime(item.accumulatedTime);
     }
 
     return () => clearInterval(interval);
   }, [item]);
 
-
+  const denyIfNoTester = () => {
+    if (canExecute) return false;
+    const message = "Access denied: only testers can run test execution.";
+    setError(message);
+    alert(message);
+    return true;
+  };
 
   const handleStart = async () => {
-    if (!id) return;
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (!id || denyIfNoTester()) return;
     try {
       setError("");
       await startExecution(id);
@@ -110,13 +113,7 @@ const ExecutionPage = () => {
   };
 
   const handlePause = async () => {
-    if (!id) return;
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (!id || denyIfNoTester()) return;
     try {
       setError("");
       await pauseExecution(id);
@@ -127,13 +124,7 @@ const ExecutionPage = () => {
   };
 
   const handleResume = async () => {
-    if (!id) return;
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (!id || denyIfNoTester()) return;
     try {
       setError("");
       await resumeExecution(id);
@@ -144,13 +135,7 @@ const ExecutionPage = () => {
   };
 
   const handleComplete = async () => {
-    if (!id) return;
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (!id || denyIfNoTester()) return;
     try {
       setError("");
       await completeExecution(id);
@@ -159,47 +144,27 @@ const ExecutionPage = () => {
       setError(err.response?.data?.message || "Failed to complete execution");
     }
   };
+
   const handleStepUpdate = async (stepId: string, status: string) => {
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (denyIfNoTester()) return;
     try {
       await updateStepStatus(stepId, status);
-
-      // Update UI instantly without refetch
-      setSteps(prev =>
-        prev.map(step =>
-          step.id === stepId
-            ? { ...step, status }
-            : step
-        )
+      setSteps((prev) =>
+        prev.map((step) => (step.id === stepId ? { ...step, status } : step))
       );
-    } catch (error) {
-      console.error(error);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to update step");
     }
   };
 
   const handleFailAndCreateBug = async (stepId: string) => {
-    if (!id) return;
-    if (!canExecute) {
-      const message = "Access denied: only testers can run test execution.";
-      setError(message);
-      alert(message);
-      return;
-    }
+    if (!id || denyIfNoTester()) return;
     try {
-      // Mark step as FAIL first
       await updateStepStatus(stepId, "FAIL");
-      setSteps(prev =>
-        prev.map(step =>
-          step.id === stepId ? { ...step, status: "FAIL" } : step
-        )
+      setSteps((prev) =>
+        prev.map((step) => (step.id === stepId ? { ...step, status: "FAIL" } : step))
       );
 
-      // Create bug from execution via Quick Fail API
       const res = await createBugFromExecution({
         executionId: id,
         failedStepId: stepId,
@@ -209,19 +174,17 @@ const ExecutionPage = () => {
 
       alert(`Bug created: ${res.data.bugId}`);
       navigate("/bugs");
-    } catch (error) {
-      console.error("Failed to create bug from execution", error);
-      alert("Failed to create bug");
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.response?.data?.message || "Failed to create bug");
     }
   };
-
 
   if (!item) return <p>Loading...</p>;
 
   return (
     <div style={{ padding: 20 }}>
       <h2>Execution</h2>
-      {!canExecute && (
+      {!canExecute ? (
         <div
           style={{
             padding: "0.75rem 1rem",
@@ -235,8 +198,8 @@ const ExecutionPage = () => {
         >
           Access denied: only testers can run test execution.
         </div>
-      )}
-      {error && (
+      ) : null}
+      {error ? (
         <div
           style={{
             padding: "0.75rem 1rem",
@@ -250,37 +213,83 @@ const ExecutionPage = () => {
         >
           {error}
         </div>
-      )}
+      ) : null}
 
       <h3>
         Timer: {Math.floor(displayTime / 60)}m {displayTime % 60}s
       </h3>
 
-      {/* 🔥 Conditional Buttons */}
+      {comparison?.hasComparison ? (
+        <div
+          style={{
+            border: "1px solid #cbd5e1",
+            borderRadius: "8px",
+            padding: "12px",
+            marginBottom: "16px",
+            background: "#f8fafc",
+          }}
+        >
+          <h4 style={{ margin: "0 0 8px 0" }}>Re-execution Comparison</h4>
+          <p style={{ margin: "0 0 8px 0" }}>
+            Improved: {comparison.summary.improved} | Regressed: {comparison.summary.regressed} | Unchanged:{" "}
+            {comparison.summary.unchanged} | New/Missing: {comparison.summary.newOrMissing}
+          </p>
+          {Array.isArray(comparison.steps) && comparison.steps.length ? (
+            <div style={{ maxHeight: 180, overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Step</th>
+                    <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Previous</th>
+                    <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Current</th>
+                    <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparison.steps.map((entry: any) => (
+                    <tr key={entry.stepNumber}>
+                      <td style={{ padding: "8px", borderBottom: "1px solid #f1f5f9" }}>{entry.stepNumber}</td>
+                      <td style={{ padding: "8px", borderBottom: "1px solid #f1f5f9" }}>{entry.previousStatus || "-"}</td>
+                      <td style={{ padding: "8px", borderBottom: "1px solid #f1f5f9" }}>{entry.currentStatus || "-"}</td>
+                      <td style={{ padding: "8px", borderBottom: "1px solid #f1f5f9" }}>{entry.change}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div style={{ marginBottom: 20 }}>
-        {item.status === "NOT_STARTED" && (
-          <button onClick={handleStart} disabled={!canExecute}>Start</button>
-        )}
+        {item.status === "NOT_STARTED" ? (
+          <button onClick={handleStart} disabled={!canExecute}>
+            Start
+          </button>
+        ) : null}
 
-        {item.status === "IN_PROGRESS" && (
+        {item.status === "IN_PROGRESS" ? (
           <>
-            <button onClick={handlePause} disabled={!canExecute}>Pause</button>
-            <button onClick={handleComplete} disabled={!canExecute}>Complete</button>
+            <button onClick={handlePause} disabled={!canExecute}>
+              Pause
+            </button>
+            <button onClick={handleComplete} disabled={!canExecute}>
+              Complete
+            </button>
           </>
-        )}
+        ) : null}
 
-        {item.pausedAt && (
-          <button onClick={handleResume} disabled={!canExecute}>Resume</button>
-        )}
+        {item.pausedAt ? (
+          <button onClick={handleResume} disabled={!canExecute}>
+            Resume
+          </button>
+        ) : null}
 
-        {item.status === "PASSED" && (
-          <p>Execution Completed</p>
-        )}
+        {item.status === "PASSED" ? <p>Execution Completed</p> : null}
       </div>
 
       <hr />
 
-      {/* 🔥 Step Listing */}
       {steps.map((step) => (
         <div
           key={step.id}
@@ -291,13 +300,16 @@ const ExecutionPage = () => {
           }}
         >
           <h4>Step {step.stepNumber}</h4>
-          <p><b>Action:</b> {step.action}</p>
-          <p><b>Expected:</b> {step.expectedResult}</p>
+          <p>
+            <b>Action:</b> {step.action}
+          </p>
+          <p>
+            <b>Expected:</b> {step.expectedResult}
+          </p>
 
           <div>
             <p>
-              <strong>Status:</strong>{" "}
-              {step.status ? step.status : "Not Executed"}
+              <strong>Status:</strong> {step.status ? step.status : "Not Executed"}
             </p>
 
             <button
@@ -332,7 +344,6 @@ const ExecutionPage = () => {
               Fail & Create Bug
             </button>
           </div>
-
         </div>
       ))}
     </div>

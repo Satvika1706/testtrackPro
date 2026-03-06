@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { Role } from "@prisma/client";
 import { AuthRequest } from "../../middleware/auth.middleware";
+import { resolveProjectId } from "../projects/project.context";
 import {
   exportDeveloperPerformanceReportCsv,
   exportBugsReportCsv,
@@ -29,13 +30,14 @@ const parseGroupBy = (value: unknown): "week" | "month" => {
   return "month";
 };
 
-const extractFilters = (query: AuthRequest["query"]) => {
+const extractFilters = (query: AuthRequest["query"], projectId: string) => {
   const toDate = parseDate(query.toDate);
   if (toDate) {
     toDate.setHours(23, 59, 59, 999);
   }
 
   return {
+    projectId,
     testRunId:
       typeof query.testRunId === "string" && query.testRunId
         ? query.testRunId
@@ -55,7 +57,8 @@ export const getTestExecutionReportHandler = async (
   res: Response
 ) => {
   try {
-    const data = await getTestExecutionReport(extractFilters(req.query));
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const data = await getTestExecutionReport(extractFilters(req.query, projectId));
 
     return res.status(200).json({
       message: "Test execution report fetched successfully",
@@ -71,6 +74,7 @@ export const getTestExecutionReportHandler = async (
 export const getBugsReportHandler = async (_req: AuthRequest, res: Response) =>
   {
     try {
+      const projectId = await resolveProjectId(_req, _req.user?.userId);
       const toDate = parseDate(_req.query.toDate);
       if (toDate) {
         toDate.setHours(23, 59, 59, 999);
@@ -78,6 +82,7 @@ export const getBugsReportHandler = async (_req: AuthRequest, res: Response) =>
 
       const developerId = parseTesterId(_req.query.developerId);
       const data = await getBugsReport({
+        projectId,
         fromDate: parseDate(_req.query.fromDate),
         toDate,
         severity:
@@ -119,6 +124,7 @@ export const getDeveloperPerformanceReportHandler = async (
         });
       }
 
+      const projectId = await resolveProjectId(req, req.user?.userId);
       const toDate = parseDate(req.query.toDate);
       if (toDate) {
         toDate.setHours(23, 59, 59, 999);
@@ -129,6 +135,7 @@ export const getDeveloperPerformanceReportHandler = async (
         req.user.role === "DEVELOPER" ? req.user.userId : requestedDeveloperId;
 
       const data = await getDeveloperPerformanceReport({
+        projectId,
         fromDate: parseDate(req.query.fromDate),
         toDate,
         developerId,
@@ -153,12 +160,14 @@ export const getTesterPerformanceReportHandler = async (
 ) =>
   {
     try {
+      const projectId = await resolveProjectId(req, req.user?.userId);
       const toDate = parseDate(req.query.toDate);
       if (toDate) {
         toDate.setHours(23, 59, 59, 999);
       }
 
       const data = await getTesterPerformanceReport({
+        projectId,
         fromDate: parseDate(req.query.fromDate),
         toDate,
         testRunId:
@@ -191,11 +200,12 @@ export const exportReportHandler = async (req: AuthRequest, res: Response) => {
         : "test-execution";
 
     const reportDate = new Date().toISOString().slice(0, 10);
+    const projectId = await resolveProjectId(req, req.user?.userId);
     let csv = "";
     let filename = "";
 
     if (reportType === "test-execution") {
-      csv = await exportTestExecutionReportCsv(extractFilters(req.query));
+      csv = await exportTestExecutionReportCsv(extractFilters(req.query, projectId));
       filename = `test-execution-report-${reportDate}.csv`;
     } else if (reportType === "bugs") {
       const toDate = parseDate(req.query.toDate);
@@ -203,6 +213,7 @@ export const exportReportHandler = async (req: AuthRequest, res: Response) => {
         toDate.setHours(23, 59, 59, 999);
       }
       csv = await exportBugsReportCsv({
+        projectId,
         fromDate: parseDate(req.query.fromDate),
         toDate,
         severity:
@@ -229,6 +240,7 @@ export const exportReportHandler = async (req: AuthRequest, res: Response) => {
         toDate.setHours(23, 59, 59, 999);
       }
       csv = await exportDeveloperPerformanceReportCsv({
+        projectId,
         fromDate: parseDate(req.query.fromDate),
         toDate,
         developerId:
@@ -251,6 +263,7 @@ export const exportReportHandler = async (req: AuthRequest, res: Response) => {
         toDate.setHours(23, 59, 59, 999);
       }
       csv = await exportTesterPerformanceReportCsv({
+        projectId,
         fromDate: parseDate(req.query.fromDate),
         toDate,
         testRunId:

@@ -5,6 +5,8 @@ interface CreateTestRunInput {
   description?: string;
   testCaseIds: string[];
   userId: number;
+  projectId: string;
+  milestoneId?: string;
 }
 
 export const createTestRun = async (data: CreateTestRunInput) => {
@@ -15,7 +17,8 @@ export const createTestRun = async (data: CreateTestRunInput) => {
   const existingTestCases = await prisma.testCase.findMany({
     where: {
       id: { in: uniqueIds },
-      isDeleted: false
+      isDeleted: false,
+      projectId: data.projectId,
     },
     select: { id: true }
   });
@@ -24,12 +27,28 @@ export const createTestRun = async (data: CreateTestRunInput) => {
     throw new Error("One or more selected test cases do not exist");
   }
 
+  if (data.milestoneId) {
+    const milestone = await prisma.milestone.findFirst({
+      where: {
+        id: data.milestoneId,
+        projectId: data.projectId,
+      },
+      select: { id: true },
+    });
+
+    if (!milestone) {
+      throw new Error("Milestone not found for selected project");
+    }
+  }
+
  
   const testRun = await prisma.testRun.create({
     data: {
       name: data.name,
       description: data.description,
       createdById: data.userId,
+      projectId: data.projectId,
+      milestoneId: data.milestoneId,
 
       testRunItems: {
         create: uniqueIds.map((id) => ({
@@ -44,21 +63,26 @@ export const createTestRun = async (data: CreateTestRunInput) => {
 
   return testRun;
 };
-export const getAllTestRuns = async () => {
+export const getAllTestRuns = async (projectId: string) => {
   return prisma.testRun.findMany({
+    where: {
+      projectId,
+    },
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: { select: { email: true } },
+      milestone: { select: { id: true, name: true, status: true } },
       _count: { select: { testRunItems: true } }
     }
   });
 };
 
-export const getTestRunById = async (id: string) => {
-  const run = await prisma.testRun.findUnique({
-    where: { id },
+export const getTestRunById = async (id: string, projectId: string) => {
+  const run = await prisma.testRun.findFirst({
+    where: { id, projectId },
     include: {
       createdBy: { select: { email: true } },
+      milestone: { select: { id: true, name: true, status: true } },
       _count: { select: { testRunItems: true } },
     },
   });
@@ -69,9 +93,14 @@ export const getTestRunById = async (id: string) => {
 
   return run;
 };
-export const getTestRunItems = async (testRunId: string) => {
+export const getTestRunItems = async (testRunId: string, projectId: string) => {
   return prisma.testRunItem.findMany({
-    where: { testRunId },
+    where: {
+      testRunId,
+      testRun: {
+        projectId,
+      },
+    },
     include: {
       testCase: {
         select: { title: true }
@@ -124,10 +153,7 @@ export const startExecution = async (testRunItemId: string) => {
     pausedAt: null,
     accumulatedTime: 0
   }
-});
-
-
-    // Snapshot steps 
+});
     await tx.testExecutionStep.createMany({
       data: steps.map(step => ({
         testRunItemId: testRunItemId,
@@ -304,9 +330,14 @@ export const assignTestRunItem = async (
 
   return updated;
 };
-export const getRunProgress = async (testRunId: string) => {
+export const getRunProgress = async (testRunId: string, projectId: string) => {
   const items = await prisma.testRunItem.findMany({
-    where: { testRunId },
+    where: {
+      testRunId,
+      testRun: {
+        projectId,
+      },
+    },
     select: { status: true }
   });
 
@@ -361,4 +392,148 @@ export const updateExecutionStepStatus = async (
   });
 
   return step;
+};
+
+export const createReExecution = async (testRunItemId: string) => {
+  const original = await prisma.testRunItem.findUnique({
+    where: { id: testRunItemId },
+    select: {
+      id: true,
+      testRunId: true,
+      testCaseId: true,
+      assignedToId: true,
+      status: true,
+    },
+  });
+
+  if (!original) {
+    throw new Error("Test run item not found");
+  }
+
+  if (!["PASSED", "FAILED", "BLOCKED"].includes(original.status)) {
+    throw new Error("Re-execution is allowed only for completed items");
+  }
+
+  const reExecution = await prisma.testRunItem.create({
+    data: {
+      testRunId: original.testRunId,
+      testCaseId: original.testCaseId,
+      assignedToId: original.assignedToId,
+      status: "NOT_STARTED",
+      reExecutionOfId: original.id,
+    },
+  });
+
+  return reExecution;
+};
+
+export const getExecutionComparison = async (testRunItemId: string) => {
+  const current = await prisma.testRunItem.findUnique({
+    where: { id: testRunItemId },
+    select: {
+      id: true,
+      reExecutionOfId: true,
+      status: true,
+    },
+  });
+
+  if (!current) {
+    throw new Error("Test run item not found");
+  }
+
+  if (!current.reExecutionOfId) {
+    return {
+      hasComparison: false,
+      reason: "No previous execution linked to this item.",
+      summary: {
+        improved: 0,
+        regressed: 0,
+        unchanged: 0,
+        newOrMissing: 0,
+      },
+      steps: [],
+    };
+  }
+
+  const [previousSteps, currentSteps] = await Promise.all([
+    prisma.testExecutionStep.findMany({
+      where: { testRunItemId: current.reExecutionOfId },
+      orderBy: { stepNumber: "asc" },
+      select: {
+        stepNumber: true,
+        status: true,
+        actualResult: true,
+      },
+    }),
+    prisma.testExecutionStep.findMany({
+      where: { testRunItemId: current.id },
+      orderBy: { stepNumber: "asc" },
+      select: {
+        stepNumber: true,
+        status: true,
+        actualResult: true,
+      },
+    }),
+  ]);
+
+  const previousByStep = new Map(previousSteps.map((step) => [step.stepNumber, step]));
+  const currentByStep = new Map(currentSteps.map((step) => [step.stepNumber, step]));
+  const allStepNumbers = Array.from(new Set([...previousByStep.keys(), ...currentByStep.keys()])).sort(
+    (a, b) => a - b
+  );
+
+  const rank = (status: string | null) => {
+    if (status === "PASS") return 4;
+    if (status === "SKIPPED") return 3;
+    if (status === "BLOCKED") return 2;
+    if (status === "FAIL") return 1;
+    return 0;
+  };
+
+  let improved = 0;
+  let regressed = 0;
+  let unchanged = 0;
+  let newOrMissing = 0;
+
+  const steps = allStepNumbers.map((stepNumber) => {
+    const prev = previousByStep.get(stepNumber);
+    const curr = currentByStep.get(stepNumber);
+
+    let change: "IMPROVED" | "REGRESSED" | "UNCHANGED" | "NEW_OR_MISSING" = "UNCHANGED";
+
+    if (!prev || !curr) {
+      change = "NEW_OR_MISSING";
+      newOrMissing++;
+    } else if (prev.status === curr.status) {
+      unchanged++;
+    } else if (rank(curr.status) > rank(prev.status)) {
+      change = "IMPROVED";
+      improved++;
+    } else {
+      change = "REGRESSED";
+      regressed++;
+    }
+
+    return {
+      stepNumber,
+      previousStatus: prev?.status ?? null,
+      currentStatus: curr?.status ?? null,
+      previousActualResult: prev?.actualResult ?? null,
+      currentActualResult: curr?.actualResult ?? null,
+      change,
+    };
+  });
+
+  return {
+    hasComparison: true,
+    summary: {
+      improved,
+      regressed,
+      unchanged,
+      newOrMissing,
+    },
+    previousExecutionId: current.reExecutionOfId,
+    currentExecutionId: current.id,
+    steps,
+  };
 };

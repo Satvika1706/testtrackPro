@@ -14,6 +14,9 @@ import bugRoutes from "./modules/bug/bug.routes";
 import notificationRoutes from "./modules/notification/notification.routes";
 import reportRoutes from "./modules/reports/report.routes";
 import adminRoutes from "./modules/admin/admin.routes";
+import searchRoutes from "./modules/search/search.routes";
+import projectRoutes from "./modules/projects/project.routes";
+import webhookRoutes from "./modules/integrations/webhook.routes";
 
 
 
@@ -40,4 +43,7 @@ app.use("/api/bugs", bugRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/reports", reportRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/integrations", webhookRoutes);
 export default app;

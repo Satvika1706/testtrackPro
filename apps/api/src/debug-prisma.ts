@@ -5,10 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("--------------------------------------------------");
   console.log("🔍 DEBUGGING PRISMA CLIENT");
-  console.log("--------------------------------------------------");
-  
-  // This prints every table name Prisma knows about
-  // We are looking for 'testCaseHistory' in this list
+  console.log("--------------------------------------------------");
   const models = Object.keys(prisma).filter(key => !key.startsWith('_') && !key.startsWith('$'));
   
   console.log("Available Models:", models);

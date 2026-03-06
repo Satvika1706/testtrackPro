@@ -10,6 +10,7 @@ export const createTestRunSchema = z.object({
     .string()
     .max(500, "Description cannot exceed 500 characters")
     .optional(),
+  milestoneId: z.string().uuid().optional(),
 
   testCaseIds: z
     .array(

@@ -5,15 +5,14 @@ import {
   createBugCommentSchema,
   createBugFromExecutionSchema,
   developerActionSchema,
+  softDeleteBugSchema,
   triageDecisionSchema,
+  triageClassificationSchema,
   updateBugCommentSchema,
   updateBugStatusSchema,
 } from "./bug.validation";
 import { AuthRequest } from "../../middleware/auth.middleware";
-
-/* =========================================================
-   CREATE BUG
-========================================================= */
+import { resolveProjectId } from "../projects/project.context";
 
 export const createBug = async (req: AuthRequest, res: Response) => {
   try {
@@ -23,7 +22,8 @@ export const createBug = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const bug = await BugService.createBug(parsed, req.user.userId);
+    const projectId = await resolveProjectId(req, req.user.userId);
+    const bug = await BugService.createBug(parsed, req.user.userId, projectId);
 
     return res.status(201).json(bug);
   } catch (error: any) {
@@ -32,10 +32,6 @@ export const createBug = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-/* =========================================================
-   CREATE BUG FROM EXECUTION
-========================================================= */
 
 export const createBugFromExecution = async (
   req: AuthRequest,
@@ -48,9 +44,11 @@ export const createBugFromExecution = async (
       return res.status(401).json({ error: "Unauthorized" });
     }
 
+    const projectId = await resolveProjectId(req, req.user.userId);
     const bug = await BugService.createBugFromExecution(
       parsed,
-      req.user.userId
+      req.user.userId,
+      projectId
     );
 
     return res.status(201).json(bug);
@@ -61,22 +59,15 @@ export const createBugFromExecution = async (
   }
 };
 
-/* =========================================================
-   GET ALL BUGS
-========================================================= */
-
-export const getBugs = async (_req: AuthRequest, res: Response) => {
+export const getBugs = async (req: AuthRequest, res: Response) => {
   try {
-    const bugs = await BugService.getBugs();
+    const projectId = await resolveProjectId(req, req.user?.userId);
+    const bugs = await BugService.getBugs(projectId);
     return res.json(bugs);
   } catch {
     return res.status(500).json({ error: "Failed to fetch bugs" });
   }
 };
-
-/* =========================================================
-   GET BUG BY ID
-========================================================= */
 
 export const getBugById = async (req: AuthRequest, res: Response) => {
   try {
@@ -86,7 +77,8 @@ export const getBugById = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const bug = await BugService.getBugById(id, req.user.role);
+    const projectId = await resolveProjectId(req, req.user.userId);
+    const bug = await BugService.getBugById(id, req.user.role, projectId);
 
     if (!bug) {
       return res.status(404).json({ error: "Bug not found" });
@@ -99,10 +91,6 @@ export const getBugById = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-/* =========================================================
-   TRIAGE BUG
-========================================================= */
 
 export const triageBug = async (req: AuthRequest, res: Response) => {
   try {
@@ -123,9 +111,22 @@ export const triageBug = async (req: AuthRequest, res: Response) => {
   }
 };
 
-/* =========================================================
-   UPDATE STATUS
-========================================================= */
+export const updateTriageClassification = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const parsed = triageClassificationSchema.parse(req.body);
+
+    const updated = await BugService.updateTriageClassification(id, parsed);
+    return res.json(updated);
+  } catch (error: any) {
+    return res.status(400).json({
+      error: error.message || "Failed to update triage classification",
+    });
+  }
+};
 
 export const updateBugStatus = async (
   req: AuthRequest,
@@ -149,10 +150,6 @@ export const updateBugStatus = async (
     });
   }
 };
-
-/* =========================================================
-   DEVELOPER ACTION
-========================================================= */
 
 export const developerAction = async (
   req: AuthRequest,
@@ -179,10 +176,6 @@ export const developerAction = async (
     });
   }
 };
-
-/* =========================================================
-   COMMENTS
-========================================================= */
 
 export const getBugComments = async (
   req: AuthRequest,
@@ -267,10 +260,6 @@ export const deleteBugComment = async (
   }
 };
 
-/* =========================================================
-   ASSIGN BUG
-========================================================= */
-
 export const assignBug = async (
   req: AuthRequest,
   res: Response
@@ -304,10 +293,6 @@ export const assignBug = async (
   }
 };
 
-/* =========================================================
-   GET MY ASSIGNED
-========================================================= */
-
 export const getMyAssignedBugs = async (
   req: AuthRequest,
   res: Response
@@ -326,6 +311,7 @@ export const getMyAssignedBugs = async (
       limit = 10,
     } = req.query;
 
+    const projectId = await resolveProjectId(req, req.user.userId);
     const bugs = await BugService.getMyAssignedBugs(
       req.user.userId,
       {
@@ -335,11 +321,68 @@ export const getMyAssignedBugs = async (
         sortBy: sortBy as string | undefined,
         page: Number(page),
         limit: Number(limit),
-      }
+      },
+      projectId
     );
 
     return res.json(bugs);
   } catch (error: any) {
     return res.status(400).json({ error: error.message });
+  }
+};
+
+export const getMentionableUsers = async (req: AuthRequest, res: Response) => {
+  try {
+    const query = typeof req.query.query === "string" ? req.query.query : undefined;
+    const users = await BugService.getMentionableUsers(query);
+    return res.json(users);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message || "Failed to fetch users" });
+  }
+};
+
+export const getAssignableDevelopers = async (req: AuthRequest, res: Response) => {
+  try {
+    const query = typeof req.query.query === "string" ? req.query.query : undefined;
+    const users = await BugService.getAssignableDevelopers(query);
+    return res.json(users);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message || "Failed to fetch developers" });
+  }
+};
+
+export const softDeleteBug = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { id } = req.params;
+    const parsed = softDeleteBugSchema.parse(req.body);
+    const updated = await BugService.softDeleteBug(
+      id,
+      parsed.status,
+      parsed.deletionReason,
+      req.user
+    );
+    return res.json(updated);
+  } catch (error: any) {
+    return res.status(400).json({
+      error: error.message || "Failed to delete bug",
+    });
+  }
+};
+
+export const restoreBug = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { id } = req.params;
+    const updated = await BugService.restoreBug(id, req.user);
+    return res.json(updated);
+  } catch (error: any) {
+    return res.status(400).json({
+      error: error.message || "Failed to restore bug",
+    });
   }
 };

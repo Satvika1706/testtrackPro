@@ -2,6 +2,7 @@ import { prisma } from "../../prisma";
 import { BugSeverity, BugStatus, Prisma, Role } from "@prisma/client";
 
 export interface TestExecutionReportFilters {
+  projectId: string;
   testRunId?: string;
   fromDate?: Date;
   toDate?: Date;
@@ -10,6 +11,7 @@ export interface TestExecutionReportFilters {
 }
 
 export interface BugReportFilters {
+  projectId: string;
   fromDate?: Date;
   toDate?: Date;
   severity?: string;
@@ -19,6 +21,7 @@ export interface BugReportFilters {
 }
 
 export interface DeveloperPerformanceFilters {
+  projectId: string;
   fromDate?: Date;
   toDate?: Date;
   developerId?: number;
@@ -27,6 +30,7 @@ export interface DeveloperPerformanceFilters {
 }
 
 export interface TesterPerformanceFilters {
+  projectId: string;
   fromDate?: Date;
   toDate?: Date;
   testRunId?: string;
@@ -86,7 +90,9 @@ const EXECUTED_TEST_RUN_ITEM_STATUSES = new Set([
 export const getTestExecutionReport = async (
   filters: TestExecutionReportFilters
 ) => {
-  const where: Prisma.TestRunItemWhereInput = {};
+  const where: Prisma.TestRunItemWhereInput = {
+    testRun: { projectId: filters.projectId },
+  };
 
   if (filters.testRunId) {
     where.testRunId = filters.testRunId;
@@ -266,6 +272,7 @@ export const getTestExecutionReport = async (
 
   const [runs, testers, modules] = await Promise.all([
     prisma.testRun.findMany({
+      where: { projectId: filters.projectId },
       select: {
         id: true,
         name: true
@@ -284,6 +291,7 @@ export const getTestExecutionReport = async (
     }),
     prisma.testCase.findMany({
       where: {
+        projectId: filters.projectId,
         module: {
           not: ""
         }
@@ -386,6 +394,7 @@ export const exportTestExecutionReportCsv = async (
 
 export const getBugsReport = async (filters: BugReportFilters) => {
   const where: Prisma.BugWhereInput = {
+    projectId: filters.projectId,
     status: {
       notIn: ["SOFT_DELETED", "REJECTED"]
     }
@@ -701,6 +710,7 @@ export const getDeveloperPerformanceReport = async (
       : filters.developerId;
 
   const where: Prisma.BugWhereInput = {
+    projectId: filters.projectId,
     status: { notIn: [BugStatus.SOFT_DELETED, BugStatus.REJECTED] },
     assignedToId: { not: null },
   };
@@ -735,6 +745,7 @@ export const getDeveloperPerformanceReport = async (
     }),
     prisma.bug.findMany({
       where: {
+        projectId: filters.projectId,
         status: { notIn: [BugStatus.SOFT_DELETED, BugStatus.REJECTED] },
         ...(filters.fromDate || filters.toDate
           ? {
@@ -1105,6 +1116,9 @@ export const getTesterPerformanceReport = async (
   filters: TesterPerformanceFilters
 ) => {
   const testRunItemWhere: Prisma.TestRunItemWhereInput = {
+    testRun: {
+      projectId: filters.projectId,
+    },
     assignedToId: {
       not: null
     }
@@ -1135,6 +1149,7 @@ export const getTesterPerformanceReport = async (
   }
 
   const bugWhere: Prisma.BugWhereInput = {
+    projectId: filters.projectId,
     status: {
       notIn: ["SOFT_DELETED", "REJECTED"]
     },
@@ -1197,7 +1212,7 @@ export const getTesterPerformanceReport = async (
       }
     }),
     prisma.testCase.count({
-      where: { isDeleted: false }
+      where: { isDeleted: false, projectId: filters.projectId }
     }),
     prisma.user.findMany({
       where: { role: "TESTER" },
@@ -1205,6 +1220,7 @@ export const getTesterPerformanceReport = async (
       orderBy: { email: "asc" }
     }),
     prisma.testRun.findMany({
+      where: { projectId: filters.projectId },
       select: { id: true, name: true },
       orderBy: { createdAt: "desc" }
     })

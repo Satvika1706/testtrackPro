@@ -4,11 +4,14 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { prisma } from "../prisma";
 import { sendVerificationEmail } from "./sendEmail";
+import { AuthRequest, requireAuth } from "../middleware/auth.middleware";
 
 const router = Router();
 
-const SELF_REGISTRATION_ROLES = ["TESTER", "DEVELOPER"] as const;
+const SELF_REGISTRATION_ROLES = ["TESTER", "DEVELOPER", "TRIAGE"] as const;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function isStrongPassword(password: string): boolean {
   const strongRegex =
@@ -27,6 +30,46 @@ function shouldExposeDevTokens(): boolean {
 function buildFrontendVerifyUrl(token: string): string {
   const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
   return `${frontendUrl}/verify-email?token=${encodeURIComponent(token)}`;
+}
+
+function assertJwtSecret() {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("Missing JWT_SECRET in environment");
+  }
+  return process.env.JWT_SECRET;
+}
+
+function signAccessToken(user: {
+  id: number;
+  email: string;
+  role: string;
+}) {
+  const secret = assertJwtSecret();
+  return jwt.sign(
+    {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    secret,
+    { expiresIn: ACCESS_TOKEN_TTL_SECONDS }
+  );
+}
+
+async function createRefreshTokenSession(userId: number) {
+  const refreshToken = crypto.randomBytes(48).toString("hex");
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshToken,
+      userId,
+      revoked: false,
+    },
+  });
+  return refreshToken;
+}
+
+function isRefreshTokenExpired(createdAt: Date) {
+  return Date.now() - createdAt.getTime() > REFRESH_TOKEN_TTL_MS;
 }
 
 router.post("/register", async (req, res) => {
@@ -203,15 +246,9 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // One-way verification: once a user logs in with valid credentials,
-    // we normalize account state so they are not asked to verify again.
     if (!user.isEmailVerified) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          isEmailVerified: true,
-          verificationToken: null,
-        },
+      return res.status(403).json({
+        message: "Please verify your email before logging in",
       });
     }
 
@@ -223,24 +260,16 @@ router.post("/login", async (req, res) => {
       },
     });
 
-    if (!process.env.JWT_SECRET) {
-      console.error("Missing JWT_SECRET in environment");
-      return res.status(500).json({ message: "Server configuration error" });
-    }
-
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "30m" }
-    );
+    const token = signAccessToken(user);
+    const refreshToken = await createRefreshTokenSession(user.id);
 
     return res.json({
       message: "Login successful",
       token,
+      accessToken: token,
+      refreshToken,
+      accessTokenExpiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenExpiresIn: Math.floor(REFRESH_TOKEN_TTL_MS / 1000),
       user: {
         id: user.id,
         username: user.username,
@@ -250,6 +279,104 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/refresh", async (req, res) => {
+  try {
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken.trim() : "";
+    if (!refreshToken) {
+      return res.status(400).json({ message: "refreshToken is required" });
+    }
+
+    const session = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true },
+    });
+
+    if (!session || session.revoked || isRefreshTokenExpired(session.createdAt)) {
+      if (session && !session.revoked) {
+        await prisma.refreshToken.update({
+          where: { id: session.id },
+          data: { revoked: true },
+        });
+      }
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+
+    if (!session.user.isEmailVerified) {
+      return res.status(403).json({ message: "Email is not verified" });
+    }
+
+    const nextRefreshToken = crypto.randomBytes(48).toString("hex");
+    await prisma.$transaction([
+      prisma.refreshToken.update({
+        where: { id: session.id },
+        data: { revoked: true },
+      }),
+      prisma.refreshToken.create({
+        data: {
+          token: nextRefreshToken,
+          userId: session.userId,
+          revoked: false,
+        },
+      }),
+    ]);
+
+    const nextAccessToken = signAccessToken(session.user);
+    return res.json({
+      message: "Token refreshed",
+      token: nextAccessToken,
+      accessToken: nextAccessToken,
+      refreshToken: nextRefreshToken,
+      accessTokenExpiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenExpiresIn: Math.floor(REFRESH_TOKEN_TTL_MS / 1000),
+    });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/logout", async (req, res) => {
+  try {
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken.trim() : "";
+    if (!refreshToken) {
+      return res.status(400).json({ message: "refreshToken is required" });
+    }
+
+    await prisma.refreshToken.updateMany({
+      where: {
+        token: refreshToken,
+        revoked: false,
+      },
+      data: {
+        revoked: true,
+      },
+    });
+
+    return res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/logout-all", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    await prisma.refreshToken.updateMany({
+      where: {
+        userId: req.user!.userId,
+        revoked: false,
+      },
+      data: {
+        revoked: true,
+      },
+    });
+    return res.json({ message: "Logged out from all devices" });
+  } catch (error) {
+    console.error("Logout-all error:", error);
     return res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -324,14 +451,23 @@ router.post("/reset-password", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpiry: null,
-      },
-    });
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpiry: null,
+        },
+      }),
+      prisma.refreshToken.updateMany({
+        where: {
+          userId: user.id,
+          revoked: false,
+        },
+        data: { revoked: true },
+      }),
+    ]);
 
     return res.json({ message: "Password reset successful" });
   } catch (error) {

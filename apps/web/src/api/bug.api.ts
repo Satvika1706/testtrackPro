@@ -4,15 +4,12 @@ export type BugSeverity = "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "TRIVIAL"
 export type BugPriority = "P1" | "P2" | "P3" | "P4";
 export type BugStatus =
   | "NEW"
-  | "TRIAGE_PENDING"
-  | "TRIAGED"
   | "OPEN"
   | "IN_PROGRESS"
   | "FIXED"
   | "VERIFIED"
   | "CLOSED"
   | "REOPENED"
-  | "WONT_FIX_REQUESTED"
   | "WONT_FIX"
   | "DUPLICATE";
 
@@ -67,6 +64,20 @@ export interface BugComment {
   createdBy: { id: number; email: string; role: string };
 }
 
+export interface MentionableUser {
+  id: number;
+  username?: string | null;
+  email: string;
+  role: string;
+  mentionToken: string;
+}
+
+export interface AssignableDeveloper {
+  id: number;
+  username?: string | null;
+  email: string;
+}
+
 export interface CreateBugPayload {
   title: string;
   description: string;
@@ -112,9 +123,13 @@ export const updateBugStatus = (id: string, status: BugStatus) =>
   api.patch<BugItem>(`/api/bugs/${id}/status`, { status });
 export const triageBug = (
   id: string,
-  decision: "APPROVE" | "DUPLICATE" | "WONT_FIX" | "REJECT"
+  decision: "OPEN" | "DUPLICATE" | "WONT_FIX"
 ) =>
   api.patch<BugItem>(`/api/bugs/${id}/triage`, { decision });
+export const updateTriageClassification = (
+  id: string,
+  payload: { priority?: BugPriority; severity?: BugSeverity }
+) => api.patch<BugItem>(`/api/bugs/${id}/triage-classification`, payload);
 export const assignBug = (id: string, assignedToId: number) =>
   api.patch<BugItem>(`/api/bugs/${id}/assign`, { assignedToId });
 export const runDeveloperAction = (id: string, payload: DeveloperActionPayload) =>
@@ -129,3 +144,7 @@ export const editBugComment = (commentId: string, content: string) =>
   api.patch<BugComment>(`/api/bugs/comments/${commentId}`, { content });
 export const deleteBugComment = (commentId: string) =>
   api.delete(`/api/bugs/comments/${commentId}`);
+export const getMentionableUsers = (query = "") =>
+  api.get<MentionableUser[]>("/api/bugs/mentionable-users", { params: { query } });
+export const getAssignableDevelopers = (query = "") =>
+  api.get<AssignableDeveloper[]>("/api/bugs/assignable-developers", { params: { query } });

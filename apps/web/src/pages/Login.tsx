@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 
 import AuthLayout from "../layouts/AuthLayout";
+import { setAuthTokens } from "../utils/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ const Login = () => {
         password,
       });
 
-      localStorage.setItem("token", res.data.token);
+      setAuthTokens(res.data.token, res.data.refreshToken);
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || "Login failed");

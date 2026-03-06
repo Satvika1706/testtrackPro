@@ -11,19 +11,34 @@ import {
   assignBug,
   getMyAssignedBugs,
   triageBug,
+  updateTriageClassification,
   developerAction,
   getBugComments,
   addBugComment,
   editBugComment,
   deleteBugComment,
+  getMentionableUsers,
+  getAssignableDevelopers,
+  restoreBug,
+  softDeleteBug,
 } from "./bug.controller";
 
 const router = Router();
 
-/**
- * Developer - Get My Assigned Bugs
- * MUST come before "/:id"
- */
+
+router.get(
+  "/mentionable-users",
+  requireAuth,
+  requireRole(["TESTER", "DEVELOPER", "ADMIN", "TRIAGE"]),
+  getMentionableUsers
+);
+router.get(
+  "/assignable-developers",
+  requireAuth,
+  requireRole(["TRIAGE", "ADMIN"]),
+  getAssignableDevelopers
+);
+
 router.get(
   "/my",
   requireAuth,
@@ -31,9 +46,7 @@ router.get(
   getMyAssignedBugs
 );
 
-/**
- * Create Bug
- */
+
 router.post(
   "/",
   requireAuth,
@@ -48,9 +61,7 @@ router.post(
   createBugFromExecution
 );
 
-/**
- * Get All Bugs
- */
+
 router.get(
   "/",
   requireAuth,
@@ -58,10 +69,7 @@ router.get(
   getBugs
 );
 
-/**
- * Get Bug By ID
- * MUST come after static routes
- */
+
 router.get(
   "/:id",
   requireAuth,
@@ -69,9 +77,7 @@ router.get(
   getBugById
 );
 
-/**
- * Update Bug Status
- */
+
 router.patch(
   "/:id/status",
   requireAuth,
@@ -79,9 +85,6 @@ router.patch(
   updateBugStatus
 );
 
-/**
- * Developer Resolution Actions
- */
 router.patch(
   "/:id/developer-action",
   requireAuth,
@@ -89,9 +92,6 @@ router.patch(
   developerAction
 );
 
-/**
- * Bug Comments & Collaboration
- */
 router.get(
   "/:id/comments",
   requireAuth,
@@ -120,9 +120,7 @@ router.delete(
   deleteBugComment
 );
 
-/**
- * Assign Bug
- */
+
 router.patch(
   "/:id/assign",
   requireAuth,
@@ -134,6 +132,26 @@ router.patch(
   requireAuth,
   requireRole(["TRIAGE", "ADMIN"]),
   triageBug
+);
+router.patch(
+  "/:id/triage-classification",
+  requireAuth,
+  requireRole(["TRIAGE", "ADMIN"]),
+  updateTriageClassification
+);
+
+router.patch(
+  "/:id/delete",
+  requireAuth,
+  requireRole(["TRIAGE", "ADMIN"]),
+  softDeleteBug
+);
+
+router.patch(
+  "/:id/restore",
+  requireAuth,
+  requireRole(["TRIAGE", "ADMIN"]),
+  restoreBug
 );
 
 export default router;

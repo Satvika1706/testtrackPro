@@ -17,4 +17,5 @@ export const createTestRun = (data: {
   name: string;
   description?: string;
   testCaseIds: string[];
+  milestoneId?: string;
 }) => api.post("/api/test-runs", data);

@@ -1,12 +1,15 @@
 import {
   BugDeletionAction,
+  BugPriority,
   BugSeverity,
   BugStatus,
   NotificationType,
   Role,
+  WebhookEventType,
 } from "@prisma/client";
 import { prisma } from "../../prisma";
 import { NotificationService } from "../notification/notification.service";
+import { WebhookService } from "../integrations/webhook.service";
 import {
   getAllowedTransitions,
   isRole,
@@ -35,10 +38,6 @@ export class BugService {
     BugSeverity.BLOCKER,
     BugSeverity.CRITICAL,
   ]);
-
-  /* =========================================================
-     UTIL
-  ========================================================= */
 
   private static toRole(role: string): Role {
     if (!isRole(role)) throw new Error("Invalid role");
@@ -116,7 +115,12 @@ export class BugService {
     const users = await prisma.user.findMany({
       where: {
         OR: mentionTokens.map((token) => ({
-          OR: [{ email: token }, { email: { startsWith: `${token}@` } }],
+          OR: [
+            { email: token },
+            { email: { startsWith: `${token}@`, mode: "insensitive" } },
+            { username: token },
+            { username: { startsWith: token, mode: "insensitive" } },
+          ],
         })),
       },
       select: { id: true },
@@ -144,17 +148,28 @@ export class BugService {
     return `BUG-${year}-${padded}`;
   }
 
-  /* =========================================================
-     CREATE BUG
-  ========================================================= */
+  
 
-  static async createBug(data: any, userId: number) {
+  static async createBug(data: any, userId: number, projectId: string) {
     const bugId = await this.generateBugId();
+    const sanitized = {
+      title: data.title,
+      description: data.description,
+      stepsToReproduce: data.stepsToReproduce,
+      expectedBehavior: data.expectedBehavior,
+      actualBehavior: data.actualBehavior,
+      severity: data.severity,
+      priority: data.priority,
+      environment: data.environment,
+      affectedVersion: data.affectedVersion,
+      assignedToId: data.assignedToId,
+    };
 
     const bug = await prisma.bug.create({
       data: {
         bugId,
-        ...data,
+        ...sanitized,
+        projectId,
         createdById: userId,
       },
       include: { assignedTo: true, createdBy: true },
@@ -167,21 +182,74 @@ export class BugService {
     );
 
     await this.notifyAssigneeOnAssignment(bug);
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_CREATED, bug);
 
     return bug;
   }
 
-  /* =========================================================
-     CREATE BUG FROM EXECUTION
-  ========================================================= */
-
-  static async createBugFromExecution(payload: any, userId: number) {
+  static async createBugFromExecution(payload: any, userId: number, projectId: string) {
     const bugId = await this.generateBugId();
+    const runItem = await prisma.testRunItem.findUnique({
+      where: { id: payload.executionId },
+      include: {
+        testRun: {
+          select: { projectId: true },
+        },
+        testCase: {
+          select: {
+            title: true,
+            environment: true,
+          },
+        },
+      },
+    });
+
+    if (!runItem) {
+      throw new Error("Execution not found");
+    }
+    if (runItem.testRun.projectId !== projectId) {
+      throw new Error("Execution does not belong to selected project");
+    }
+
+    const failedStep = await prisma.testExecutionStep.findUnique({
+      where: { id: payload.failedStepId },
+      select: {
+        id: true,
+        testRunItemId: true,
+        stepNumber: true,
+        action: true,
+        expectedResult: true,
+        actualResult: true,
+      },
+    });
+
+    if (!failedStep) {
+      throw new Error("Failed step not found");
+    }
+
+    if (failedStep.testRunItemId !== runItem.id) {
+      throw new Error("Failed step does not belong to execution");
+    }
+
+    const derivedTitle = `Execution Failure: ${runItem.testCase.title} (Step ${failedStep.stepNumber})`;
+    const baseDescription = `Failed during test execution ${runItem.id}.`;
+    const noteSuffix = payload.additionalNotes ? ` Notes: ${payload.additionalNotes}` : "";
+    const actualBehavior =
+      failedStep.actualResult?.trim() || "Step marked as FAIL during execution.";
 
     const bug = await prisma.bug.create({
       data: {
         bugId,
-        ...payload,
+        title: derivedTitle,
+        description: `${baseDescription}${noteSuffix}`.trim(),
+        stepsToReproduce: failedStep.action,
+        expectedBehavior: failedStep.expectedResult,
+        actualBehavior,
+        severity: payload.severity,
+        priority: payload.priority,
+        environment: runItem.testCase.environment || undefined,
+        assignedToId: payload.assignedToId,
+        projectId,
         createdById: userId,
       },
       include: { assignedTo: true, createdBy: true },
@@ -194,17 +262,15 @@ export class BugService {
     );
 
     await this.notifyAssigneeOnAssignment(bug);
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_CREATED, bug);
 
     return bug;
   }
 
-  /* =========================================================
-     GET BUGS
-  ========================================================= */
-
-  static async getBugs() {
+  static async getBugs(projectId: string) {
     return prisma.bug.findMany({
       where: {
+        projectId,
         status: {
           notIn: [BugStatus.REJECTED, BugStatus.SOFT_DELETED],
         },
@@ -214,9 +280,9 @@ export class BugService {
     });
   }
 
-  static async getBugById(id: string, role: string) {
-    const bug = await prisma.bug.findUnique({
-      where: { id },
+  static async getBugById(id: string, role: string, projectId: string) {
+    const bug = await prisma.bug.findFirst({
+      where: { id, projectId },
       include: { assignedTo: true, createdBy: true },
     });
 
@@ -231,9 +297,7 @@ export class BugService {
     };
   }
 
-  /* =========================================================
-     STATUS UPDATE
-  ========================================================= */
+ 
 
   static async updateStatus(
     id: string,
@@ -252,6 +316,14 @@ export class BugService {
       throw new Error("Bug not found");
     }
 
+    const role = this.toRole(user.role);
+    const currentStatus = existing.status as WorkflowBugStatus;
+    const allowedTransitions = getAllowedTransitions(currentStatus, role);
+
+    if (newStatus !== currentStatus && !allowedTransitions.includes(newStatus)) {
+      throw new Error(`Transition from ${currentStatus} to ${newStatus} is not allowed for ${role}`);
+    }
+
     const updated = await prisma.bug.update({
       where: { id },
       data: { status: newStatus as BugStatus },
@@ -266,22 +338,56 @@ export class BugService {
         createdById: updated.createdById,
         actorId: user.userId,
       });
+
+      const resolvedStatuses = new Set<BugStatus>([
+        BugStatus.FIXED,
+        BugStatus.VERIFIED,
+        BugStatus.CLOSED,
+      ]);
+      const eventType = resolvedStatuses.has(updated.status) && !resolvedStatuses.has(existing.status)
+        ? WebhookEventType.BUG_RESOLVED
+        : WebhookEventType.BUG_UPDATED;
+      await WebhookService.emitBugEvent(eventType, updated);
     }
 
     return updated;
   }
 
-  /* =========================================================
-     TRIAGE
-  ========================================================= */
-
   static async triageBug(id: string, decision: any, user: AuthUser) {
-    return this.updateStatus(id, decision, user);
+    return this.updateStatus(id, decision as WorkflowBugStatus, user);
   }
 
-  /* =========================================================
-     DEVELOPER ACTION
-  ========================================================= */
+  static async updateTriageClassification(
+    id: string,
+    payload: { priority?: BugPriority; severity?: BugSeverity }
+  ) {
+    const existing = await prisma.bug.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!existing) {
+      throw new Error("Bug not found");
+    }
+
+    if (existing.status !== BugStatus.NEW) {
+      throw new Error("Priority/Severity can be changed only during NEW triage review");
+    }
+
+    const updated = await prisma.bug.update({
+      where: { id },
+      data: {
+        ...(payload.priority ? { priority: payload.priority } : {}),
+        ...(payload.severity ? { severity: payload.severity } : {}),
+      },
+      include: { assignedTo: true, createdBy: true },
+    });
+
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_UPDATED, updated);
+    return updated;
+  }
+
+ 
 
   static async performDeveloperAction(id: string, payload: any, user: AuthUser) {
     const bug = await prisma.bug.findUnique({
@@ -304,10 +410,12 @@ export class BugService {
 
     const now = new Date();
     const data: Record<string, unknown> = {};
+    let statusChangedByTransition = false;
 
     switch (payload.action) {
       case "START_WORK":
-        data.status = BugStatus.IN_PROGRESS;
+        await this.updateStatus(id, "IN_PROGRESS", user);
+        statusChangedByTransition = true;
         data.workStartedAt = now;
         break;
       case "ADD_FIX_NOTES":
@@ -317,7 +425,8 @@ export class BugService {
         data.fixCommitRef = payload.commitRef;
         break;
       case "MARK_FIXED":
-        data.status = BugStatus.FIXED;
+        await this.updateStatus(id, "FIXED", user);
+        statusChangedByTransition = true;
         data.fixedAt = now;
         data.resolutionSummary = payload.resolutionSummary ?? null;
         break;
@@ -331,14 +440,9 @@ export class BugService {
         );
         break;
       case "WONT_FIX":
-        data.status = BugStatus.WONT_FIX_REQUESTED;
+        await this.updateStatus(id, "WONT_FIX", user);
+        statusChangedByTransition = true;
         data.wontFixReason = payload.wontFixReason ?? null;
-        await NotificationService.notifyRoleUsers(
-          Role.TRIAGE,
-          this.NOTIFICATION_TYPES.BUG_WONT_FIX_REVIEW,
-          bug.id,
-          user.userId
-        );
         break;
       default:
         throw new Error("Unsupported developer action");
@@ -350,7 +454,7 @@ export class BugService {
       include: { assignedTo: true, createdBy: true },
     });
 
-    if (bug.status !== updated.status) {
+    if (!statusChangedByTransition && bug.status !== updated.status) {
       await this.notifyStatusChangeStakeholders({
         bugId: updated.id,
         status: updated.status,
@@ -360,12 +464,14 @@ export class BugService {
       });
     }
 
+    if (Object.keys(data).length > 0) {
+      await WebhookService.emitBugEvent(WebhookEventType.BUG_UPDATED, updated);
+    }
+
     return updated;
   }
 
-  /* =========================================================
-     COMMENTS
-  ========================================================= */
+  
 
   static async getComments(bugId: string) {
     return prisma.bugComment.findMany({
@@ -448,20 +554,42 @@ export class BugService {
       throw new Error("assignedToId must belong to a DEVELOPER");
     }
 
+    const bug = await prisma.bug.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!bug) {
+      throw new Error("Bug not found");
+    }
+
+    if (bug.status !== BugStatus.NEW && bug.status !== BugStatus.OPEN) {
+      throw new Error("Assignment is allowed only for NEW or OPEN bugs");
+    }
+
     const updated = await prisma.bug.update({
       where: { id },
-      data: { assignedToId, status: BugStatus.OPEN },
+      data: {
+        assignedToId,
+        ...(bug.status === BugStatus.NEW ? { status: BugStatus.OPEN } : {}),
+      },
       include: { assignedTo: true, createdBy: true },
     });
 
     await this.notifyAssigneeOnAssignment(updated);
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_UPDATED, updated);
 
     return updated;
   }
 
-  static async getMyAssignedBugs(developerId: number, filters: any) {
+  static async getMyAssignedBugs(
+    developerId: number,
+    filters: any,
+    projectId: string
+  ) {
     const bugs = await prisma.bug.findMany({
       where: {
+        projectId,
         assignedToId: developerId,
         status: {
           notIn: [BugStatus.REJECTED, BugStatus.SOFT_DELETED],
@@ -521,6 +649,8 @@ export class BugService {
       },
     });
 
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_DELETED, updated);
+
     return updated;
   }
 
@@ -540,7 +670,7 @@ export class BugService {
     });
 
     const restoredStatus =
-      lastDeletion?.previousStatus ?? BugStatus.TRIAGE_PENDING;
+      (lastDeletion?.previousStatus as BugStatus | null) ?? BugStatus.NEW;
 
     const updated = await prisma.bug.update({
       where: { id },
@@ -564,6 +694,69 @@ export class BugService {
       },
     });
 
+    await WebhookService.emitBugEvent(WebhookEventType.BUG_UPDATED, updated);
+
     return updated;
+  }
+
+  static async getMentionableUsers(query?: string) {
+    const normalized = (query ?? "").trim();
+
+    const users = await prisma.user.findMany({
+      where: {
+        role: { in: [Role.TESTER, Role.DEVELOPER, Role.TRIAGE, Role.ADMIN] },
+        ...(normalized
+          ? {
+              OR: [
+                { username: { contains: normalized, mode: "insensitive" } },
+                { email: { contains: normalized, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+      },
+      orderBy: [{ email: "asc" }],
+      take: 100,
+    });
+
+    return users.map((item) => ({
+      id: item.id,
+      username: item.username,
+      email: item.email,
+      role: item.role,
+      mentionToken: item.username || item.email.split("@")[0],
+    }));
+  }
+
+  static async getAssignableDevelopers(query?: string) {
+    const normalized = (query ?? "").trim();
+
+    const users = await prisma.user.findMany({
+      where: {
+        role: Role.DEVELOPER,
+        ...(normalized
+          ? {
+              OR: [
+                { username: { contains: normalized, mode: "insensitive" } },
+                { email: { contains: normalized, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+      orderBy: [{ email: "asc" }],
+      take: 100,
+    });
+
+    return users;
   }
 }

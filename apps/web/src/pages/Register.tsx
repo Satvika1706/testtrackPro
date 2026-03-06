@@ -49,7 +49,7 @@ const Register = () => {
       "& .MuiOutlinedInput-root": {
         borderRadius: 2,
         backgroundColor: "#ffffff",
-        minHeight: 56,
+        minHeight: 50,
         transition: "all 150ms ease",
       },
       "& .MuiOutlinedInput-root.Mui-focused": {
@@ -141,9 +141,9 @@ const Register = () => {
             src={Logo}
             alt="TestTrack Pro"
             sx={{
-              width: 420,
+              width: 360,
               maxWidth: "100%",
-              mb: 6,
+              mb: 4,
               filter: "drop-shadow(0 25px 50px rgba(0,0,0,0.35))",
               transition: "transform 300ms ease",
               "&:hover": { transform: "scale(1.04)" },
@@ -152,7 +152,7 @@ const Register = () => {
           <Typography
             sx={{
               color: "rgba(255,255,255,0.9)",
-              fontSize: "1.1rem",
+              fontSize: "1rem",
               fontWeight: 500,
               lineHeight: 1.6,
             }}
@@ -168,27 +168,27 @@ const Register = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          px: 4,
-          py: 6,
+          px: { xs: 2, sm: 3 },
+          py: { xs: 3, sm: 4 },
           backgroundColor: "#f8fafc",
         }}
       >
         <Paper
           sx={{
             width: "100%",
-            maxWidth: 540,
-            p: 6,
+            maxWidth: 500,
+            p: { xs: 3, sm: 4 },
             borderRadius: 3,
             boxShadow: "0 30px 60px rgba(15,23,42,0.15)",
           }}
         >
-          <Stack spacing={3}>
+          <Stack spacing={2.5}>
             <Box>
               <Typography
                 variant="h3"
                 sx={{
                   fontWeight: 800,
-                  fontSize: { xs: "2.1rem", sm: "2.4rem" },
+                  fontSize: { xs: "1.8rem", sm: "2.1rem" },
                   letterSpacing: -0.6,
                 }}
               >
@@ -252,6 +252,7 @@ const Register = () => {
             <TextField select label="Register as" value={role} onChange={(e) => setRole(e.target.value)} fullWidth sx={fieldSx}>
               <MenuItem value="TESTER">Tester</MenuItem>
               <MenuItem value="DEVELOPER">Developer</MenuItem>
+              <MenuItem value="TRIAGE">Triage</MenuItem>
             </TextField>
 
             <Button
@@ -261,9 +262,9 @@ const Register = () => {
               disabled={loading}
               onClick={handleRegister}
               sx={{
-                py: 2,
+                py: 1.4,
                 fontWeight: 800,
-                fontSize: "1rem",
+                fontSize: "0.9rem",
                 letterSpacing: 0.8,
                 borderRadius: 2.5,
                 backgroundColor: "#2563eb",

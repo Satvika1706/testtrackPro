@@ -1,63 +1,65 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { commitMappedImport, previewMappedImport } from "./testcase.import";
+import { prisma } from "../../prisma";
 
-// 1. CREATE
-export const createTestCaseService = async (data: any, userId: number) => {
+export const createTestCaseService = async (
+  data: any,
+  userId: number,
+  projectId: string
+) => {
   const { steps, ...testCaseData } = data;
 
-  return await prisma.testCase.create({
+  return prisma.testCase.create({
     data: {
       ...testCaseData,
-      
-      createdById: userId, 
-      
-      steps: steps ? {
-        create: steps.map((step: any, index: number) => ({
-          stepNumber: index + 1,
-          action: step.action,
-          expectedResult: step.expectedResult
-        }))
-      } : undefined
-    }
-  });
-};
-
-// 2. GET ALL 
-export const getTestCasesService = async () => {
-  return await prisma.testCase.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      steps: true 
-    }
-  });
-};
-
-// 3. GET ONE
-export const getTestCaseByIdService = async (id: string) => {
-  return await prisma.testCase.findUnique({
-    where: { id },
-    include: {
-      steps: {
-        orderBy: { stepNumber: 'asc' }
-      }
+      projectId,
+      createdById: userId,
+      steps: steps
+        ? {
+            create: steps.map((step: any, index: number) => ({
+              stepNumber: index + 1,
+              action: step.action,
+              expectedResult: step.expectedResult,
+            })),
+          }
+        : undefined,
     },
   });
 };
-// 4. UPDATE 
 
+export const getTestCasesService = async (projectId: string) => {
+  return prisma.testCase.findMany({
+    where: {
+      projectId,
+      isDeleted: false,
+    },
+    orderBy: { createdAt: "desc" },
+    include: {
+      steps: true,
+    },
+  });
+};
+
+export const getTestCaseByIdService = async (id: string, projectId: string) => {
+  return prisma.testCase.findFirst({
+    where: { id, projectId, isDeleted: false },
+    include: {
+      steps: {
+        orderBy: { stepNumber: "asc" },
+      },
+    },
+  });
+};
 
 export const updateTestCaseService = async (
   id: string,
   data: any,
-  userId: number
+  userId: number,
+  projectId: string
 ) => {
-  
-  const existing = await prisma.testCase.findUnique({
-    where: { id },
+  const existing = await prisma.testCase.findFirst({
+    where: { id, projectId, isDeleted: false },
     include: { steps: true },
   });
-console.log("UPDATE SERVICE CALLED");
-console.log("Incoming steps:", data.steps);
 
   if (!existing) {
     throw new Error("Test case not found");
@@ -65,14 +67,11 @@ console.log("Incoming steps:", data.steps);
 
   const newVersion = existing.version + 1;
 
- 
   if (data.steps && Array.isArray(data.steps)) {
-   
     await prisma.testStep.deleteMany({
       where: { testCaseId: id },
     });
 
-    
     for (let i = 0; i < data.steps.length; i++) {
       const step = data.steps[i];
 
@@ -87,7 +86,6 @@ console.log("Incoming steps:", data.steps);
     }
   }
 
-  
   const updated = await prisma.testCase.update({
     where: { id },
     data: {
@@ -107,19 +105,17 @@ console.log("Incoming steps:", data.steps);
     include: { steps: true },
   });
 
-
-  const stepsSnapshot = updated.steps.map(step => ({
+  const stepsSnapshot = updated.steps.map((step) => ({
     id: step.id,
     action: step.action,
     expectedResult: step.expectedResult,
-    stepNumber: step.stepNumber
+    stepNumber: step.stepNumber,
   }));
 
   await prisma.testCaseHistory.create({
     data: {
       testCaseId: id,
       version: newVersion,
-
       title: updated.title,
       description: updated.description,
       module: updated.module,
@@ -130,7 +126,6 @@ console.log("Incoming steps:", data.steps);
       preConditions: updated.preConditions,
       testData: updated.testData,
       environment: updated.environment,
-
       stepsSnapshot,
       changedBy: userId,
       changedAt: new Date(),
@@ -139,43 +134,49 @@ console.log("Incoming steps:", data.steps);
 
   return updated;
 };
-;
 
+export const deleteTestCaseService = async (id: string, projectId: string) => {
+  const existing = await prisma.testCase.findFirst({
+    where: { id, projectId, isDeleted: false },
+    select: { id: true },
+  });
+  if (!existing) {
+    throw new Error("Test case not found");
+  }
 
-export const deleteTestCaseService = async (id: string) => {
-  return await prisma.testCase.update({
+  return prisma.testCase.update({
     where: { id },
     data: { isDeleted: true },
   });
 };
 
-
-// 6. CLONE
-export const cloneTestCaseService = async (id: string, userId: number) => {
-  const original = await prisma.testCase.findUnique({
-    where: { id },
-    include: { steps: true }
+export const cloneTestCaseService = async (id: string, userId: number, projectId: string) => {
+  const original = await prisma.testCase.findFirst({
+    where: { id, projectId, isDeleted: false },
+    include: { steps: true },
   });
 
   if (!original) throw new Error("Not found");
 
-  const { id: _, ...data } = original;
+  const { id: _, createdAt, updatedAt, ...data } = original;
 
-  return await prisma.testCase.create({
+  return prisma.testCase.create({
     data: {
       ...data,
       title: `${original.title} (Clone)`,
-      createdById: userId, 
+      createdById: userId,
+      projectId,
       steps: {
-        create: original.steps.map(s => ({
+        create: original.steps.map((s) => ({
           stepNumber: s.stepNumber,
           action: s.action,
-          expectedResult: s.expectedResult
-        }))
-      }
-    }
+          expectedResult: s.expectedResult,
+        })),
+      },
+    },
   });
 };
+
 export const createTestCaseTemplateService = async (
   testCaseId: string,
   templateData: {
@@ -183,11 +184,11 @@ export const createTestCaseTemplateService = async (
     category: string;
     description?: string;
   },
-  userId: number
+  userId: number,
+  projectId: string
 ) => {
-  
-  const testCase = await prisma.testCase.findUnique({
-    where: { id: testCaseId },
+  const testCase = await prisma.testCase.findFirst({
+    where: { id: testCaseId, projectId, isDeleted: false },
     include: { steps: true },
   });
 
@@ -195,38 +196,54 @@ export const createTestCaseTemplateService = async (
     throw new Error("Test case not found");
   }
 
-  const stepsSnapshot = testCase.steps.map(step => ({
+  const stepsSnapshot = testCase.steps.map((step) => ({
     stepNumber: step.stepNumber,
     action: step.action,
     expectedResult: step.expectedResult,
   }));
-
 
   return prisma.testCaseTemplate.create({
     data: {
       name: templateData.name,
       category: templateData.category,
       description: templateData.description,
-
       title: testCase.title,
       priority: testCase.priority,
       severity: testCase.severity,
       type: testCase.type,
-
       preConditions: testCase.preConditions,
       testData: testCase.testData,
       environment: testCase.environment,
-
       stepsSnapshot,
-
       createdById: userId,
+      projectId,
     },
   });
 };
-export const getTestCaseTemplatesService = async () => {
+
+export const getTestCaseTemplatesService = async (projectId: string) => {
   return prisma.testCaseTemplate.findMany({
-    where: { isActive: true },
+    where: { isActive: true, projectId },
     orderBy: { createdAt: "desc" },
   });
 };
 
+export const previewTestCaseImportService = async (rows: unknown, mapping: unknown) => {
+  return previewMappedImport(rows as Record<string, unknown>[], mapping as Record<string, string>);
+};
+
+export const commitTestCaseImportService = async (
+  rows: unknown,
+  mapping: unknown,
+  createdById: number,
+  projectId: string,
+  mode?: "skip_errors" | "all_or_nothing"
+) => {
+  return commitMappedImport(
+    rows as Record<string, unknown>[],
+    mapping as Record<string, string>,
+    createdById,
+    projectId,
+    mode || "skip_errors"
+  );
+};

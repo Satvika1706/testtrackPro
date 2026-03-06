@@ -1,0 +1,181 @@
+TESTTRACK PRO - IMPLEMENTATION STATUS (SIMPLE TEXT VERSION)
+Date: 2026-03-06
+
+============================================================
+1) WHAT THIS DOCUMENT IS
+============================================================
+This file explains:
+1. What is already implemented in TestTrack Pro
+2. What is partially implemented
+3. What is still not implemented
+4. Current real flow of the app
+
+Status meaning:
+- Implemented = working in code and usable
+- Partial = some parts done, important parts still missing
+- Not Implemented = no real implementation found
+
+============================================================
+2) QUICK SUMMARY
+============================================================
+Core modules working:
+- Authentication (register/login/forgot/reset)
+- Role-based access control
+- Test case management (create/edit/clone/soft delete)
+- Test suites
+- Test runs and execution
+- Bug reporting and bug workflow actions
+- Comments with threading + @mentions
+- Notifications (in-app + real-time)
+- Reports + CSV export
+- Admin user and role management
+
+Main missing/weak areas:
+- Password history reuse checks
+- Evidence upload pipeline (screenshots/video/log/HAR) end-to-end
+- Global search and filter presets
+- API key auth, rate limiting, Swagger
+- Notification preferences + quiet hours
+- Dashboard drag/drop personalization
+
+============================================================
+3) MODULE-WISE STATUS
+============================================================
+
+3.1 Authentication and Authorization
+- Register: Implemented
+- Email verification: Implemented (login now enforces verification)
+- Strong password rules: Implemented
+- Login lock after 5 attempts (15 min): Implemented
+- Forgot password + 1-hour reset token: Implemented
+- Remember me: Not Implemented
+- Change password with current password: Not Implemented
+- Last 5 password reuse block: Not Implemented
+- JWT auth: Implemented
+- Access token 15 minutes: Implemented
+- Refresh token 7 days: Implemented
+- Logout from all devices: Implemented
+- OAuth Google/GitHub: Not Implemented
+
+3.2 Roles and Permissions
+- RBAC backend + frontend guards: Implemented
+- Tester flow permissions: Partial (mostly complete, evidence/file areas pending)
+- Developer flow permissions: Implemented
+- Admin features: Partial (user/roles done; project/settings/backups/audit UI incomplete)
+
+3.3 Test Case Management
+- Create test case with main fields and ordered steps: Partial
+- Auto-generated test case ID: Partial
+- Edit + version history: Partial (history exists, change summary/ownership rules missing)
+- Clone: Implemented
+- Soft delete: Implemented
+- Restore/permanent delete admin flow: Not Implemented
+- Templates + library: Implemented
+- Bulk operations: Partial (basic UI actions only)
+- CSV/Excel import with mapping/preview/errors: Implemented (includes JSON import path for other tools)
+
+3.4 Test Execution
+- Execution UI (start/pause/resume/complete): Implemented
+- Step status updates: Implemented
+- Actual result capture per step: Partial
+- Auto-save/execution history depth: Partial
+- Test run management: Partial (deadlines/milestones missing)
+- Evidence capture and limits: Partial (DB model exists, full upload flow missing)
+- Quick fail + create bug: Implemented
+- Timer + pause/resume: Implemented
+- Manual time entry: Not Implemented
+- Re-execution comparison flow: Implemented
+
+3.5 Bug Management
+- Bug creation with standard fields: Implemented
+- Workflow transitions with role rules: Partial (close but not exact spec)
+- Developer actions (start/fix/notes/commit/retest/won't-fix): Implemented
+- Threaded comments: Implemented
+- @mentions: Implemented
+- Edit/delete comment within 5 min: Implemented
+- Rich text comments: Partial
+- Soft delete/restore bug via API/UI: Partial (service exists, route/UI incomplete)
+
+3.6 Test Suites
+- Create hierarchical suites: Implemented
+- Add/remove/reorder tests: Implemented
+- Clone suite: Implemented
+- Archive/restore: Implemented
+- Execute whole suite directly: Partial (suite can be used during test run creation)
+
+3.7 Reporting and Analytics
+- Test execution report: Implemented
+- Bug report: Implemented
+- Developer performance report: Implemented
+- Tester performance report: Implemented
+- Export CSV: Implemented
+- Export PDF: Partial (browser print helper)
+- Export Excel: Not Implemented
+- Scheduled email reports: Not Implemented
+- Drag/drop personal dashboard widgets: Not Implemented
+
+3.8 Project Management
+- Multi-project support: Implemented
+- Project configs/custom fields: Implemented
+- Milestones and run mapping: Implemented
+
+3.9 Notifications
+- In-app notifications: Implemented
+- Real-time bell/unread/read/history: Implemented
+- Event-based email notifications: Partial
+- User notification preferences + quiet hours: Not Implemented
+
+3.10 Search and Filters
+- Global full-text search: Implemented
+- Advanced filters + save/share presets: Implemented
+- Quick filters: Implemented
+
+3.11 Integrations
+- Commit reference to bugs: Partial (manual reference only)
+- Git history/branch integration: Not Implemented
+- Webhooks with retry: Implemented (admin endpoint config, event filtering, delivery queue + exponential backoff)
+- API key auth: Not Implemented
+- Rate limiting: Not Implemented
+- Swagger/OpenAPI docs: Not Implemented
+
+============================================================
+4) CURRENT APP FLOW (AS BUILT TODAY)
+============================================================
+
+4.1 Auth Flow
+1. User registers
+2. Verification link flow exists
+3. User logs in and receives JWT token
+4. Route access is controlled by role guards
+5. Forgot/reset password flow works
+
+4.2 Tester Flow
+1. Create and manage test cases
+2. Organize into suites
+3. Create test runs from cases/suites
+4. Execute run items step-by-step
+5. Mark pass/fail/blocked
+6. Use quick "Fail & Create Bug" when needed
+7. View dashboard and reports
+
+4.3 Developer/Triage/Admin Flow
+1. Developer views assigned bugs
+2. Updates bug status and adds fix details/commit ref
+3. Requests re-test
+4. Triage/Admin assigns and triages defects
+5. Team collaborates through threaded comments and mentions
+6. Notification updates appear in real time
+
+4.4 Reporting Flow
+1. Dashboard uses report APIs
+2. Detailed report pages fetch filtered report data
+3. CSV export available from report APIs
+
+============================================================
+5) TOP PRIORITY NEXT STEPS
+============================================================
+1. Add password history reuse checks + change-password-with-current-password flow
+2. Complete evidence upload module with file limits
+3. Harden project-level access controls across all modules
+4. Add global search and filter preset framework
+5. Add API governance (Swagger, API keys, rate limiting)

@@ -10,9 +10,7 @@ import { reorderTestCasesInSuite } from "./testsuite.controller";
 import { archiveTestSuite, restoreTestSuite, } from "./testsuite.controller";
 
 
-const router = Router();
-
-// Create Test Suite
+const router = Router();
 router.post(
   "/test-suites",
   requireAuth,
