@@ -64,8 +64,12 @@ const TestCaseList = () => {
   const [errorMessage, setErrorMessage] = useState("");
 
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { successMessage?: string } };
+  
+type LocationState = {
+  successMessage?: string;
+};
 
+const location = useLocation() as { pathname: string; state?: LocationState };
   const fetchTestCases = async () => {
     try {
       const data = await getTestCases();
@@ -81,12 +85,18 @@ const TestCaseList = () => {
     fetchTestCases();
   }, []);
 
-  useEffect(() => {
-    const message = location.state?.successMessage;
-    if (!message) return;
-    setSuccessMessage(message);
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.pathname, location.state, navigate]);
+ useEffect(() => {
+  const message = location.state?.successMessage;
+
+  if (!message) return;
+
+  setSuccessMessage(message);
+
+  navigate(location.pathname, {
+    replace: true,
+    state: {},
+  });
+}, [location, navigate]);
 
   const filteredCases = useMemo(() => {
     return testCases.filter((tc) =>
